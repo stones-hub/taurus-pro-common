@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/stones-hub/taurus-pro-common/pkg/cron"
 	"github.com/stones-hub/taurus-pro-common/pkg/ctx"
 	"github.com/stones-hub/taurus-pro-common/pkg/util"
 )
@@ -80,5 +83,116 @@ func contextExample() {
 }
 
 func cronExample() {
+	// 创建 cron 管理器，启用秒级调度
+	cm := cron.New(
+		cron.WithSeconds(),                           // 启用秒级调度
+		cron.WithConcurrencyMode(cron.SkipIfRunning), // 设置并发控制模式
+	)
 
+	// 创建任务分组
+	orderGroup := cron.NewTaskGroup("order")
+	orderGroup.AddTag("business")
+	orderGroup.AddTag("core")
+
+	userGroup := cron.NewTaskGroup("user")
+	userGroup.AddTag("business")
+
+	// 创建一个普通任务：每5秒执行一次的订单检查任务
+	orderCheckTask := cron.NewTask(
+		"order_check",   // 任务名称
+		"*/5 * * * * *", // cron 表达式（每5秒执行一次）
+		func(ctx context.Context) error {
+			log.Println("正在检查订单状态...")
+			// 模拟任务执行
+			time.Sleep(2 * time.Second)
+			return nil
+		},
+		cron.WithTimeout(10*time.Second), // 设置超时时间
+		cron.WithGroup(orderGroup),       // 设置任务分组
+		cron.WithTag("check"),            // 添加标签
+		cron.WithTag("periodic"),
+	)
+
+	// 创建一个可能超时的任务：每10秒执行一次的数据同步任务
+	dataSyncTask := cron.NewTask(
+		"data_sync",
+		"*/10 * * * * *",
+		func(ctx context.Context) error {
+			log.Println("开始同步数据...")
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("数据同步超时")
+			case <-time.After(8 * time.Second):
+				log.Println("数据同步完成")
+				return nil
+			}
+		},
+		cron.WithTimeout(5*time.Second), // 设置一个较短的超时时间来演示超时
+		cron.WithGroup(userGroup),
+		cron.WithTag("sync"),
+	)
+
+	// 创建一个会失败并重试的任务：每15秒执行一次的通知任务
+	notifyTask := cron.NewTask(
+		"notify",
+		"*/15 * * * * *",
+		func(ctx context.Context) error {
+			log.Println("尝试发送通知...")
+			// 模拟任务失败
+			return errors.New("通知发送失败")
+		},
+		cron.WithRetry(3, time.Second), // 设置重试策略：最多重试3次，间隔1秒
+		cron.WithGroup(userGroup),
+		cron.WithTag("notification"),
+	)
+
+	// 添加所有任务
+	orderCheckId, _ := cm.AddTask(orderCheckTask)
+	dataSyncId, _ := cm.AddTask(dataSyncTask)
+	notifyId, _ := cm.AddTask(notifyTask)
+
+	// 启动 cron 管理器
+	cm.Start()
+	log.Println("Cron 管理器已启动")
+
+	// 演示查询功能
+	go func() {
+		time.Sleep(30 * time.Second)
+
+		// 获取任务指标
+		if metrics := cm.GetTaskMetrics(orderCheckId); metrics != nil {
+			log.Printf("订单检查任务指标: 最后执行时间=%v, 最后执行耗时=%v\n",
+				metrics.LastRunTime, metrics.LastDuration)
+		}
+		if metrics := cm.GetTaskMetrics(dataSyncId); metrics != nil {
+			log.Printf("数据同步任务指标: 最后执行时间=%v, 最后执行耗时=%v, 最后错误=%v\n",
+				metrics.LastRunTime, metrics.LastDuration, metrics.LastError)
+		}
+		if metrics := cm.GetTaskMetrics(notifyId); metrics != nil {
+			log.Printf("通知任务指标: 最后执行时间=%v, 最后执行耗时=%v, 最后错误=%v\n",
+				metrics.LastRunTime, metrics.LastDuration, metrics.LastError)
+		}
+
+		// 按分组获取任务
+		orderTasks := cm.GetTasksByGroup("order")
+		log.Printf("订单分组任务数量: %d\n", len(orderTasks))
+
+		// 按标签获取任务
+		syncTasks := cm.GetTasksByTag("sync")
+		log.Printf("同步相关任务数量: %d\n", len(syncTasks))
+
+		// 列出所有任务
+		allTasks := cm.ListTasks()
+		log.Printf("总任务数量: %d\n", len(allTasks))
+	}()
+
+	// 运行60秒后优雅关闭
+	time.Sleep(60 * time.Second)
+	log.Println("开始优雅关闭...")
+
+	if err := cm.GracefulStop(10 * time.Second); err != nil {
+		log.Printf("优雅关闭出错: %v\n", err)
+	} else {
+		log.Println("Cron 管理器已优雅关闭")
+	}
 }
