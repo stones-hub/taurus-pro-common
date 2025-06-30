@@ -85,11 +85,13 @@ func New(opts ...Option) *CronManager {
 // Start 启动 cron 调度器
 func (cm *CronManager) Start() {
 	cm.cron.Start()
+	log.Println("\033[1;32m🔗 -> Cron initialized successfully\033[0m")
 }
 
 // Stop 停止 cron 调度器
 func (cm *CronManager) Stop() {
 	cm.cron.Stop()
+	log.Println("\033[1;31m🔗 -> Cron stopped\033[0m")
 }
 
 // GracefulStop 优雅停止所有任务

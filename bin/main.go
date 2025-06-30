@@ -83,9 +83,17 @@ func contextExample() {
 }
 
 func cronExample() {
+	// 加载上海时区
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Printf("加载时区失败: %v, 将使用系统默认时区\n", err)
+		location = time.Local
+	}
+
 	// 创建 cron 管理器，启用秒级调度
 	cm := cron.New(
 		cron.WithSeconds(),                           // 启用秒级调度
+		cron.WithLocation(location),                  // 设置时区
 		cron.WithConcurrencyMode(cron.SkipIfRunning), // 设置并发控制模式
 	)
 
