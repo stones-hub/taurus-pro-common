@@ -68,23 +68,23 @@ func (m *Manager) L(name string) *Logger {
 }
 
 func (m *Manager) LInfo(name string, format string, args ...interface{}) {
-	m.L(name).log(Info, 1, format, args...)
+	m.L(name).Info(format, args...)
 }
 
 func (m *Manager) LDebug(name string, format string, args ...interface{}) {
-	m.L(name).log(Debug, 1, format, args...)
+	m.L(name).Debug(format, args...)
 }
 
 func (m *Manager) LWarn(name string, format string, args ...interface{}) {
-	m.L(name).log(Warn, 1, format, args...)
+	m.L(name).Warn(format, args...)
 }
 
 func (m *Manager) LError(name string, format string, args ...interface{}) {
-	m.L(name).log(Error, 1, format, args...)
+	m.L(name).Error(format, args...)
 }
 
 func (m *Manager) LFatal(name string, format string, args ...interface{}) {
-	m.L(name).log(Fatal, 1, format, args...)
+	m.L(name).Fatal(format, args...)
 }
 
 // LWithSkip logs a message with custom skip level
