@@ -5,14 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/stones-hub/taurus-pro-common/pkg/cron"
 	"github.com/stones-hub/taurus-pro-common/pkg/ctx"
+	"github.com/stones-hub/taurus-pro-common/pkg/logx"
+	"github.com/stones-hub/taurus-pro-common/pkg/templates"
 	"github.com/stones-hub/taurus-pro-common/pkg/util"
 )
 
 func main() {
+	// 运行日志示例
+	loggerExample()
+
+	// 运行模板示例
+	templateExample()
+
 	fmt.Println("=== 表格测试 ===")
 	// 定义表头
 	headers := []string{"编号", "项目名称", "状态", "进度", "负责人"}
@@ -203,4 +213,342 @@ func cronExample() {
 	} else {
 		log.Println("Cron 管理器已优雅关闭")
 	}
+}
+
+func loggerExample() {
+	fmt.Println("\n=== Logger 测试 ===")
+
+	// 1. 准备日志配置
+	logDir := "logs"
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Fatalf("创建日志目录失败: %v", err)
+	}
+
+	// 2. 创建日志管理器
+	manager, cleanup, err := logx.BuildManager(
+		// 控制台日志记录器
+		logx.LoggerOptions{
+			Name:   "console",
+			Output: logx.Console,
+			Level:  logx.Debug,
+		},
+		// 主文件日志记录器
+		logx.LoggerOptions{
+			Name:       "file",
+			Output:     logx.File,
+			Level:      logx.Info,
+			FilePath:   filepath.Join(logDir, "app.log"),
+			MaxSize:    10,   // 10MB
+			MaxBackups: 5,    // 保留5个备份
+			MaxAge:     30,   // 保留30天
+			Compress:   true, // 压缩旧日志
+		},
+		// 用户模块日志记录器
+		logx.LoggerOptions{
+			Name:       "user",
+			Output:     logx.File,
+			Level:      logx.Info,
+			FilePath:   filepath.Join(logDir, "user.log"),
+			MaxSize:    5,
+			MaxBackups: 3,
+			MaxAge:     7,
+			Compress:   true,
+		},
+		// 订单模块日志记录器
+		logx.LoggerOptions{
+			Name:       "order",
+			Output:     logx.File,
+			Level:      logx.Info,
+			FilePath:   filepath.Join(logDir, "order.log"),
+			MaxSize:    5,
+			MaxBackups: 3,
+			MaxAge:     7,
+			Compress:   true,
+		},
+		// 支付模块日志记录器
+		logx.LoggerOptions{
+			Name:       "payment",
+			Output:     logx.File,
+			Level:      logx.Info,
+			FilePath:   filepath.Join(logDir, "payment.log"),
+			MaxSize:    5,
+			MaxBackups: 3,
+			MaxAge:     7,
+			Compress:   true,
+		},
+	)
+	if err != nil {
+		log.Fatalf("创建日志管理器失败: %v", err)
+	}
+	defer cleanup()
+
+	// 3. 演示通过管理器使用日志记录器
+	fmt.Println("通过管理器使用日志记录器:")
+
+	// 使用控制台日志记录器
+	manager.LInfo("console", "通过管理器获取的控制台日志记录器")
+	manager.LDebug("console", "这是一条调试日志")
+
+	// 使用文件日志记录器
+	manager.LInfo("file", "通过管理器获取的文件日志记录器")
+	manager.LWarn("file", "这是一条警告日志")
+
+	// 4. 演示业务模块日志记录
+	fmt.Println("\n业务模块日志记录:")
+
+	// 用户模块日志
+	manager.LInfo("user", "用户 %s 注册成功", "user123")
+	manager.LWarn("user", "用户 %s 登录失败次数过多", "user456")
+
+	// 订单模块日志
+	manager.LInfo("order", "订单 %s 创建成功", "order789")
+	manager.LError("order", "订单 %s 支付超时", "order012")
+
+	// 支付模块日志
+	manager.LInfo("payment", "支付交易 %s 完成", "pay345")
+	manager.LError("payment", "支付交易 %s 失败: %v", "pay678", errors.New("余额不足"))
+
+	// 5. 演示结构化数据记录
+	fmt.Println("\n记录结构化数据:")
+
+	// 用户注册事件
+	manager.LInfo("user", "新用户注册: %+v", map[string]interface{}{
+		"user_id":    "u123",
+		"username":   "张三",
+		"email":      "zhangsan@example.com",
+		"age":        25,
+		"created_at": time.Now(),
+	})
+
+	// 订单创建事件
+	manager.LInfo("order", "订单创建: %+v", map[string]interface{}{
+		"order_id":   "o456",
+		"user_id":    "u123",
+		"amount":     99.9,
+		"status":     "pending",
+		"created_at": time.Now(),
+		"items": []map[string]interface{}{
+			{
+				"id":       "item1",
+				"name":     "商品1",
+				"price":    49.9,
+				"quantity": 1,
+			},
+			{
+				"id":       "item2",
+				"name":     "商品2",
+				"price":    50.0,
+				"quantity": 1,
+			},
+		},
+	})
+
+	// 支付事件
+	manager.LInfo("payment", "支付处理: %+v", map[string]interface{}{
+		"payment_id": "p789",
+		"order_id":   "o456",
+		"user_id":    "u123",
+		"amount":     99.9,
+		"method":     "alipay",
+		"status":     "success",
+		"created_at": time.Now(),
+		"metadata": map[string]string{
+			"transaction_id": "ali_123456",
+			"channel":        "mobile",
+		},
+	})
+
+	// 6. 演示错误处理和恢复
+	fmt.Println("\n错误处理和恢复:")
+
+	// 使用不存在的日志记录器（会使用默认日志记录器）
+	manager.LInfo("not_exists", "这条日志会使用默认日志记录器")
+
+	// 使用 recover 中间件记录 panic
+	defer func() {
+		if r := recover(); r != nil {
+			// 在 defer 函数中，我们需要减少一层调用栈，因为 defer 本身会增加一层
+			manager.LWithSkip("file", logx.Error, 0, "捕获到 panic: %v", r)
+		}
+	}()
+
+	// 模拟一个会导致 panic 的操作
+	var slice []string
+	fmt.Println(slice[100]) // 这会导致 panic
+}
+
+func templateExample() {
+	fmt.Println("\n=== Template 测试 ===")
+
+	// 1. 创建模板管理器
+	manager, cleanup, err := templates.New(
+		templates.TemplateOptions{
+			Name: "main",
+			Path: "bin/templates/main", // 放在 bin 目录下
+		},
+		templates.TemplateOptions{
+			Name: "email",
+			Path: "bin/templates/email", // 放在 bin 目录下
+		},
+	)
+	if err != nil {
+		log.Fatalf("创建模板管理器失败: %v", err)
+	}
+	defer cleanup()
+
+	// 2. 动态添加基础布局模板
+	err = manager.AddTemplate("dynamic", "layout", `
+		{{define "layout"}}
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>{{.Title}}</title>
+			<style>
+				.container { padding: 20px; }
+				.header { background: #f0f0f0; padding: 10px; }
+				.content { margin: 20px 0; }
+				.footer { text-align: center; }
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">{{template "header" .}}</div>
+				<div class="content">{{template "content" .}}</div>
+				<div class="footer">{{template "footer" .}}</div>
+			</div>
+		</body>
+		</html>
+		{{end}}
+	`)
+	if err != nil {
+		log.Fatalf("添加布局模板失败: %v", err)
+	}
+
+	// 3. 动态添加页面组件
+	components := map[string]string{
+		"header": `
+			{{define "header"}}
+			<h1>{{.Title}}</h1>
+			<nav>
+				{{range .NavItems}}
+				<a href="{{.URL}}">{{.Text}}</a>
+				{{end}}
+			</nav>
+			{{end}}
+		`,
+		"content": `
+			{{define "content"}}
+			<article>
+				<h2>{{.Subtitle}}</h2>
+				<p>{{.Content}}</p>
+				{{if .ShowFeatures}}
+				<ul>
+					{{range .Features}}
+					<li>{{.}}</li>
+					{{end}}
+				</ul>
+				{{end}}
+			</article>
+			{{end}}
+		`,
+		"footer": `
+			{{define "footer"}}
+			<footer>
+				<p>{{.Copyright}}</p>
+				{{if .ShowContact}}
+				<p>联系我们: {{.Contact}}</p>
+				{{end}}
+			</footer>
+			{{end}}
+		`,
+	}
+
+	for name, content := range components {
+		if err := manager.AddTemplate("dynamic", name, content); err != nil {
+			log.Fatalf("添加组件模板 %s 失败: %v", name, err)
+		}
+	}
+
+	// 4. 准备渲染数据
+	data := map[string]interface{}{
+		"Title":    "欢迎使用 Taurus",
+		"Subtitle": "功能特性",
+		"Content":  "Taurus 是一个强大的 Go 工具库，提供了丰富的功能。",
+		"NavItems": []struct {
+			URL  string
+			Text string
+		}{
+			{"/home", "首页"},
+			{"/docs", "文档"},
+			{"/about", "关于"},
+		},
+		"ShowFeatures": true,
+		"Features": []string{
+			"日志管理",
+			"模板引擎",
+			"定时任务",
+			"工具集合",
+		},
+		"Copyright":   "© 2025 Taurus Team",
+		"ShowContact": true,
+		"Contact":     "contact@taurus.com",
+	}
+
+	// 5. 渲染完整页面
+	result, err := manager.Render("dynamic", "layout", data)
+	if err != nil {
+		log.Fatalf("渲染页面失败: %v", err)
+	}
+
+	// 6. 保存渲染结果
+	outputFile := "bin/templates/output.html"
+	if err := os.WriteFile(outputFile, []byte(result), 0644); err != nil {
+		log.Fatalf("保存渲染结果失败: %v", err)
+	}
+	fmt.Printf("页面已渲染并保存到 %s\n", outputFile)
+
+	// 7. 动态添加邮件模板
+	emailTemplate := `
+		{{define "notification"}}
+		<div style="max-width: 600px; margin: 0 auto;">
+			<h2>{{.Subject}}</h2>
+			<p>亲爱的 {{.Username}}，</p>
+			<p>{{.Message}}</p>
+			{{if .ShowButton}}
+			<div style="text-align: center;">
+				<a href="{{.ButtonURL}}" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+					{{.ButtonText}}
+				</a>
+			</div>
+			{{end}}
+			<p>祝好，<br>{{.Signature}}</p>
+		</div>
+		{{end}}
+	`
+
+	if err := manager.AddTemplate("email", "notification", emailTemplate); err != nil {
+		log.Fatalf("添加邮件模板失败: %v", err)
+	}
+
+	// 8. 渲染邮件内容
+	emailData := map[string]interface{}{
+		"Subject":    "欢迎加入 Taurus",
+		"Username":   "张三",
+		"Message":    "感谢您注册 Taurus 账号。请点击下面的按钮验证您的邮箱地址。",
+		"ShowButton": true,
+		"ButtonURL":  "https://taurus.com/verify?token=abc123",
+		"ButtonText": "验证邮箱",
+		"Signature":  "Taurus 团队",
+	}
+
+	emailContent, err := manager.Render("email", "notification", emailData)
+	if err != nil {
+		log.Fatalf("渲染邮件失败: %v", err)
+	}
+
+	// 保存邮件内容
+	if err := os.WriteFile("bin/templates/email.html", []byte(emailContent), 0644); err != nil {
+		log.Fatalf("保存邮件内容失败: %v", err)
+	}
+	fmt.Printf("邮件内容已保存到 email.html\n")
 }

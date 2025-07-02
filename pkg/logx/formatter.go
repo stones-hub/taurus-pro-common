@@ -25,10 +25,11 @@ import (
 type Formatter interface {
 	// Format formats a log message with the given parameters.
 	// level: the logging level
+	// prefix: the log prefix
 	// file: the source file where the log was called
 	// line: the line number in the source file
 	// message: the log message to format
-	Format(level Level, file string, line int, message string) string
+	Format(level Level, prefix string, file string, line int, message string) string
 }
 
 var (
@@ -66,8 +67,18 @@ func GetFormatter(name string) Formatter {
 type defaultFormatter struct{}
 
 // Format implements the Formatter interface for defaultFormatter.
-func (f defaultFormatter) Format(level Level, file string, line int, message string) string {
+func (f defaultFormatter) Format(level Level, prefix string, file string, line int, message string) string {
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
+	if prefix != "" {
+		return fmt.Sprintf("[%s] [%s] [%s:%d] [%s] %s",
+			timestamp,
+			prefix,
+			file,
+			line,
+			level.String(),
+			message,
+		)
+	}
 	return fmt.Sprintf("[%s] [%s:%d] [%s] %s",
 		timestamp,
 		file,
@@ -81,8 +92,18 @@ func (f defaultFormatter) Format(level Level, file string, line int, message str
 type JSONFormatter struct{}
 
 // Format implements the Formatter interface for JSONFormatter.
-func (f JSONFormatter) Format(level Level, file string, line int, message string) string {
+func (f JSONFormatter) Format(level Level, prefix string, file string, line int, message string) string {
 	timestamp := time.Now().Format(time.RFC3339)
+	if prefix != "" {
+		return fmt.Sprintf(`{"time":"%s","prefix":"%s","level":"%s","file":"%s","line":%d,"message":"%s"}`,
+			timestamp,
+			prefix,
+			level.String(),
+			file,
+			line,
+			message,
+		)
+	}
 	return fmt.Sprintf(`{"time":"%s","level":"%s","file":"%s","line":%d,"message":"%s"}`,
 		timestamp,
 		level.String(),

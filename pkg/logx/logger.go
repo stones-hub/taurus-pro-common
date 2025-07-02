@@ -28,139 +28,69 @@ import (
 	"github.com/natefinch/lumberjack"
 )
 
-// Level defines logging priority.
-type Level int
-
-const (
-	// Debug level for detailed troubleshooting
-	Debug Level = iota
-	// Info level for general operational entries
-	Info
-	// Warn level for non-critical issues
-	Warn
-	// Error level for errors that should be addressed
-	Error
-	// Fatal level for critical issues that require immediate attention
-	Fatal
-	// None level to disable logging
-	None
-)
-
-// String returns the string representation of Level
-func (l Level) String() string {
-	switch l {
-	case Debug:
-		return "DEBUG"
-	case Info:
-		return "INFO"
-	case Warn:
-		return "WARN"
-	case Error:
-		return "ERROR"
-	case Fatal:
-		return "FATAL"
-	case None:
-		return ""
-	default:
-		return fmt.Sprintf("LEVEL(%d)", l)
-	}
-}
-
-// OutputType defines where logs should be written
-type OutputType string
-
-const (
-	// Console writes logs to standard output
-	Console OutputType = "console"
-	// File writes logs to a file
-	File OutputType = "file"
-)
-
-// colors defines ANSI color codes for console output
-var colors = map[Level]string{
-	Debug: "\033[36m", // Cyan
-	Info:  "\033[32m", // Green
-	Warn:  "\033[33m", // Yellow
-	Error: "\033[31m", // Red
-	Fatal: "\033[35m", // Purple
-}
-
-// Config defines logger configuration options
-type Config struct {
-	Name       string     // Logger name
-	Prefix     string     // Log prefix (only used for file output)
-	Level      Level      // Minimum logging level
-	Output     OutputType // Output destination (console/file)
-	FilePath   string     // Log file path (absolute or relative)
-	MaxSize    int        // Maximum size of log file in MB
-	MaxBackups int        // Maximum number of old log files to retain
-	MaxAge     int        // Maximum number of days to retain old log files
-	Compress   bool       // Whether to compress old log files
-	Formatter  string     // Name of custom log formatter
-}
-
-// Manager manages multiple named loggers
-type Manager struct {
-	loggers map[string]*Logger
-	mu      sync.RWMutex
+var defaultConfig = LoggerOptions{
+	Name:       "default",
+	Prefix:     "",
+	Level:      Info,
+	Output:     Console,
+	FilePath:   "",
+	MaxSize:    100,
+	MaxBackups: 10,
+	MaxAge:     30,
+	Compress:   false,
+	Formatter:  "default",
 }
 
 // Logger represents a single logger instance
 type Logger struct {
-	config Config
+	config LoggerOptions
 	writer io.Writer
-	mu     sync.Mutex
+	mu     sync.RWMutex // 保护 config 和 writer 的并发访问
 }
 
-// NewManager creates a new logger manager
-func NewManager() *Manager {
-	return &Manager{
-		loggers: make(map[string]*Logger),
-	}
-}
-
-// Configure initializes loggers from configurations
-func (m *Manager) Configure(configs []Config) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, cfg := range configs {
-		if err := m.configure(cfg); err != nil {
-			return fmt.Errorf("failed to configure logger %s: %w", cfg.Name, err)
-		}
-	}
-	return nil
-}
-
-// configure creates or updates a single logger
-func (m *Manager) configure(cfg Config) error {
-	logger, err := newLogger(cfg)
-	if err != nil {
-		return err
-	}
-	m.loggers[cfg.Name] = logger
-	return nil
-}
-
-// GetLogger returns a named logger
-func (m *Manager) GetLogger(name string) (*Logger, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	logger, exists := m.loggers[name]
-	if !exists {
-		return nil, fmt.Errorf("logger %s not found", name)
-	}
-	return logger, nil
-}
-
-// newLogger creates a new Logger instance
-func newLogger(cfg Config) (*Logger, error) {
+// New creates a new Logger instance
+func New(cfg LoggerOptions) (*Logger, error) {
 	var writer io.Writer
 
 	if cfg.Output == File {
+		if cfg.FilePath == "" {
+			return nil, fmt.Errorf("file path cannot be empty for file output")
+		}
+
+		// 解析日志文件的绝对路径
 		logPath, err := resolveLogPath(cfg.FilePath)
 		if err != nil {
+			return nil, fmt.Errorf("failed to resolve log path: %w", err)
+		}
+
+		// 检查日志文件路径是否是目录
+		if info, err := os.Stat(logPath); err == nil && info.IsDir() {
+			return nil, fmt.Errorf("log path is a directory: %s", logPath)
+		}
+
+		// 获取日志目录
+		dir := filepath.Dir(logPath)
+
+		// 1. 目录不存在就创建
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return nil, fmt.Errorf("failed to create log directory: %w", err)
+			}
+		} else if err == nil {
+			// 2. 目录存在，检查是否是目录
+			info, err := os.Stat(dir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to access directory: %w", err)
+			}
+			if !info.IsDir() {
+				return nil, fmt.Errorf("path is not a directory: %s", dir)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to access directory: %w", err)
+		}
+
+		// 3. 检查目录权限
+		if err := ensureDirectoryExists(dir); err != nil {
 			return nil, err
 		}
 
@@ -178,93 +108,94 @@ func newLogger(cfg Config) (*Logger, error) {
 	return &Logger{
 		config: cfg,
 		writer: writer,
+		mu:     sync.RWMutex{},
 	}, nil
 }
 
-// resolveLogPath resolves the absolute path for log file
-func resolveLogPath(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		return path, nil
-	}
-
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	absPath := filepath.Join(dir, path)
-	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-		return "", fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	return absPath, nil
-}
-
 // log formats and writes a log message
-func (l *Logger) log(level Level, format string, args ...interface{}) {
+func (l *Logger) log(level Level, extraSkip int, format string, args ...interface{}) {
+	l.mu.RLock()
 	if level < l.config.Level {
+		l.mu.RUnlock()
 		return
 	}
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, file, line, ok := runtime.Caller(2)
+	_, file, line, ok := runtime.Caller(2 + extraSkip)
 	if !ok {
 		file = "unknown"
 		line = 0
 	}
 
 	msg := fmt.Sprintf(format, args...)
-	formatted := GetFormatter(l.config.Formatter).Format(level, file, line, msg)
+	formatted := GetFormatter(l.config.Formatter).Format(level, l.config.Prefix, file, line, msg)
+	l.mu.RUnlock()
 
+	// 只在写入时加锁
+	l.mu.Lock()
 	if l.config.Output == Console {
 		color := colors[level]
 		fmt.Fprintln(l.writer, color+formatted+"\033[0m")
 	} else {
 		fmt.Fprintln(l.writer, formatted)
 	}
+	l.mu.Unlock()
 
-	if level == Fatal {
-		os.Exit(1)
-	}
+	// 如果日志级别为 Fatal，不退出程序，错误集中处理
+	/*
+		if level == Fatal {
+			os.Exit(1)
+		}
+	*/
 }
 
 // Debug logs a debug message
 func (l *Logger) Debug(format string, args ...interface{}) {
-	l.log(Debug, format, args...)
+	l.log(Debug, 0, format, args...)
 }
 
 // Info logs an info message
 func (l *Logger) Info(format string, args ...interface{}) {
-	l.log(Info, format, args...)
+	l.log(Info, 0, format, args...)
 }
 
 // Warn logs a warning message
 func (l *Logger) Warn(format string, args ...interface{}) {
-	l.log(Warn, format, args...)
+	l.log(Warn, 0, format, args...)
 }
 
 // Error logs an error message
 func (l *Logger) Error(format string, args ...interface{}) {
-	l.log(Error, format, args...)
+	l.log(Error, 0, format, args...)
 }
 
 // Fatal logs a fatal message and exits
 func (l *Logger) Fatal(format string, args ...interface{}) {
-	l.log(Fatal, format, args...)
+	l.log(Fatal, 0, format, args...)
 }
 
 // SetLevel changes the logging level
 func (l *Logger) SetLevel(level Level) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.config.Level = level
+	l.mu.Unlock()
 }
 
 // SetFormatter changes the log formatter
 func (l *Logger) SetFormatter(formatter string) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.config.Formatter = formatter
+	l.mu.Unlock()
+}
+
+// Close releases resources held by the logger
+func (l *Logger) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.config.Output == File {
+		if closer, ok := l.writer.(*lumberjack.Logger); ok {
+			return closer.Close()
+		}
+	}
+	return nil
 }
