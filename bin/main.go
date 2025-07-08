@@ -56,7 +56,10 @@ func contextExample() {
 	taurusCtx := ctx.WithTaurusContext(baseCtx, requestID)
 
 	// 获取 TaurusContext
-	tc := ctx.GetTaurusContext(taurusCtx)
+	tc, err := ctx.GetTaurusContext(taurusCtx)
+	if err != nil {
+		log.Fatalf("获取 TaurusContext 失败: %v", err)
+	}
 
 	// 测试设置和获取数据
 	tc.Set("user_id", "user-001")
@@ -69,13 +72,23 @@ func contextExample() {
 
 	// 获取并打印存储的数据
 	fmt.Printf("\n存储的数据:\n")
-	fmt.Printf("用户ID: %v\n", tc.Get("user_id"))
-	fmt.Printf("角色: %v\n", tc.Get("role"))
-	fmt.Printf("登录时间: %v\n", tc.Get("login_time"))
+	if val, err := tc.Get("user_id"); err == nil {
+		fmt.Printf("用户ID: %v\n", val)
+	}
+	if val, err := tc.Get("role"); err == nil {
+		fmt.Printf("角色: %v\n", val)
+	}
+	if val, err := tc.Get("login_time"); err == nil {
+		fmt.Printf("登录时间: %v\n", val)
+	}
 
 	// 测试不存在的键
 	fmt.Printf("\n获取不存在的键:\n")
-	fmt.Printf("不存在的键: %v\n", tc.Get("not_exist"))
+	if val, err := tc.Get("not_exist"); err != nil {
+		fmt.Printf("不存在的键: %v\n", err)
+	} else {
+		fmt.Printf("不存在的键的值: %v\n", val)
+	}
 
 	// 测试存储不同类型的数据
 	tc.Set("int_value", 42)
@@ -85,11 +98,21 @@ func contextExample() {
 	tc.Set("map_value", map[string]int{"one": 1, "two": 2})
 
 	fmt.Printf("\n不同类型的数据:\n")
-	fmt.Printf("整数: %v\n", tc.Get("int_value"))
-	fmt.Printf("浮点数: %v\n", tc.Get("float_value"))
-	fmt.Printf("布尔值: %v\n", tc.Get("bool_value"))
-	fmt.Printf("切片: %v\n", tc.Get("slice_value"))
-	fmt.Printf("映射: %v\n", tc.Get("map_value"))
+	if val, err := tc.Get("int_value"); err == nil {
+		fmt.Printf("整数: %v\n", val)
+	}
+	if val, err := tc.Get("float_value"); err == nil {
+		fmt.Printf("浮点数: %v\n", val)
+	}
+	if val, err := tc.Get("bool_value"); err == nil {
+		fmt.Printf("布尔值: %v\n", val)
+	}
+	if val, err := tc.Get("slice_value"); err == nil {
+		fmt.Printf("切片: %v\n", val)
+	}
+	if val, err := tc.Get("map_value"); err == nil {
+		fmt.Printf("映射: %v\n", val)
+	}
 }
 
 func cronExample() {

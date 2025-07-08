@@ -17,7 +17,7 @@ type TaurusContext struct {
 type TaurusContextKey string
 
 // TaurusContextKey is a key for TaurusContext
-var tk = TaurusContextKey("taurus_context")
+var TaurusContextId = TaurusContextKey("taurus_context")
 
 // NewTaurusContext creates a new TaurusContext
 func NewTaurusContext(requestID string) *TaurusContext {
@@ -44,7 +44,7 @@ func (tc *TaurusContext) GetRequestID() string {
 
 // WithTaurusContext adds a TaurusContext to the context
 func WithTaurusContext(ctx context.Context, requestID string) context.Context {
-	return context.WithValue(ctx, tk, NewTaurusContext(requestID))
+	return context.WithValue(ctx, TaurusContextId, NewTaurusContext(requestID))
 }
 
 // GetTaurusContext gets the TaurusContext from the context
@@ -52,7 +52,7 @@ func GetTaurusContext(ctx context.Context) (*TaurusContext, error) {
 	if ctx == nil {
 		return nil, errors.New("context is nil")
 	}
-	if v, ok := ctx.Value(tk).(*TaurusContext); ok {
+	if v, ok := ctx.Value(TaurusContextId).(*TaurusContext); ok {
 		return v, nil
 	}
 	return nil, errors.New("taurus context not found")
