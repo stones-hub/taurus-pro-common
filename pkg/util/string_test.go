@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -82,11 +83,20 @@ func TestGetLastPathSegments(t *testing.T) {
 			expected: "",
 			hasError: true,
 		},
+		{
+			name:     "没有路径",
+			path:     "controller",
+			count:    3,
+			expected: "controller",
+			hasError: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := GetLastPathSegments(tt.path, tt.count)
+
+			fmt.Println(result, err)
 
 			if tt.hasError {
 				if err == nil {

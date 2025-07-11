@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/natefinch/lumberjack"
+	"github.com/stones-hub/taurus-pro-common/pkg/util"
 )
 
 var defaultConfig = LoggerOptions{
@@ -126,8 +127,14 @@ func (l *Logger) log(level Level, extraSkip int, format string, args ...interfac
 		line = 0
 	}
 
+	// 获取最后3个路径段
+	last, err := util.GetLastPathSegments(file, 3)
+	if err != nil {
+		last = file
+	}
+
 	msg := fmt.Sprintf(format, args...)
-	formatted := GetFormatter(l.config.Formatter).Format(level, l.config.Prefix, file, line, msg)
+	formatted := GetFormatter(l.config.Formatter).Format(level, l.config.Prefix, last, line, msg)
 	l.mu.RUnlock()
 
 	// 只在写入时加锁
