@@ -19,6 +19,7 @@
 package util
 
 import (
+	"fmt"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -124,4 +125,48 @@ func ParseStringSliceToUint64(s []string) []uint64 {
 	strconv.ParseUint(s string, base int , bitSize int)
 	*/
 	return iv
+}
+
+// GetLastPathSegments 从文件路径中提取最后指定数量的路径段
+// Parameters:
+//   - path: 文件路径字符串
+//   - count: 要提取的路径段数量
+//
+// Returns:
+//   - string: 最后指定数量的路径段，用/连接。如果路径段数量不足，返回原路径
+//   - error: 如果路径格式错误时返回错误
+func GetLastPathSegments(path string, count int) (string, error) {
+	if count <= 0 {
+		return "", fmt.Errorf("count must be greater than 0")
+	}
+
+	// 去除路径开头和结尾的斜杠
+	path = strings.Trim(path, "/")
+
+	// 处理空路径或只有斜杠的情况
+	if path == "" {
+		return "", fmt.Errorf("path is empty or contains only slashes")
+	}
+
+	// 按斜杠分割路径
+	segments := strings.Split(path, "/")
+
+	// 过滤空字符串（处理连续的斜杠）
+	var filteredSegments []string
+	for _, segment := range segments {
+		if segment != "" {
+			filteredSegments = append(filteredSegments, segment)
+		}
+	}
+
+	// 如果路径段数量不足，返回原路径
+	if len(filteredSegments) < count {
+		return path, nil
+	}
+
+	// 获取最后count个路径段
+	lastSegments := filteredSegments[len(filteredSegments)-count:]
+
+	// 用斜杠连接
+	return strings.Join(lastSegments, "/"), nil
 }
