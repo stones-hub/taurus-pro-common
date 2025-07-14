@@ -195,6 +195,17 @@ func (cm *CronManager) RemoveTask(id cron.EntryID) {
 	delete(cm.metrics, id)
 }
 
+// GetTask 获取指定任务
+func (cm *CronManager) GetTask(id cron.EntryID) *Task {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	if task, exists := cm.tasks[id]; exists {
+		return task
+	}
+	return nil
+}
+
 // GetTasksByGroup 获取指定分组的所有任务
 func (cm *CronManager) GetTasksByGroup(groupName string) []*Task {
 	cm.mu.RLock()
@@ -223,6 +234,13 @@ func (cm *CronManager) GetTasksByTag(tag string) []*Task {
 	return taggedTasks
 }
 
+// 获取所有的任务信息（含任务ID）
+func (cm *CronManager) GetAllTasks() map[cron.EntryID]*Task {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.tasks
+}
+
 // GetTaskMetrics 获取任务的指标信息
 func (cm *CronManager) GetTaskMetrics(id cron.EntryID) *TaskMetrics {
 	cm.mu.RLock()
@@ -231,6 +249,37 @@ func (cm *CronManager) GetTaskMetrics(id cron.EntryID) *TaskMetrics {
 	if metrics, exists := cm.metrics[id]; exists {
 		return metrics
 	}
+	return nil
+}
+
+// ListTasks 列出所有的定时任务
+func (cm *CronManager) ListTasks() []*Task {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	tasks := make([]*Task, 0, len(cm.tasks))
+	for _, task := range cm.tasks {
+		tasks = append(tasks, task)
+	}
+	return tasks
+}
+
+// ModifyTask 修改一个定时任务
+func (cm *CronManager) ModifyTask(id cron.EntryID, newTask *Task) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if _, exists := cm.tasks[id]; !exists {
+		return fmt.Errorf("task with ID %d does not exist", id)
+	}
+
+	cm.RemoveTask(id)
+	newID, err := cm.AddTask(newTask)
+	if err != nil {
+		return err
+	}
+
+	cm.logger.Printf("Task %s modified successfully, New ID: %d", newTask.Name, newID)
 	return nil
 }
 
@@ -264,35 +313,4 @@ func (cm *CronManager) updateMetrics(taskName string, duration time.Duration, er
 			break
 		}
 	}
-}
-
-// ListTasks 列出所有的定时任务
-func (cm *CronManager) ListTasks() []*Task {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	tasks := make([]*Task, 0, len(cm.tasks))
-	for _, task := range cm.tasks {
-		tasks = append(tasks, task)
-	}
-	return tasks
-}
-
-// ModifyTask 修改一个定时任务
-func (cm *CronManager) ModifyTask(id cron.EntryID, newTask *Task) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	if _, exists := cm.tasks[id]; !exists {
-		return fmt.Errorf("task with ID %d does not exist", id)
-	}
-
-	cm.RemoveTask(id)
-	newID, err := cm.AddTask(newTask)
-	if err != nil {
-		return err
-	}
-
-	cm.logger.Printf("Task %s modified successfully, New ID: %d", newTask.Name, newID)
-	return nil
 }
