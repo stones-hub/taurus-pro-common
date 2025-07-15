@@ -4,3 +4,12 @@
 [2025-07-02 14:56:08.291] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [INFO] 订单 order789 创建成功
 [2025-07-02 14:56:08.291] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [ERROR] 订单 order012 支付超时
 [2025-07-02 14:56:08.292] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [INFO] 订单创建: map[amount:99.9 created_at:2025-07-02 14:56:08.292249 +0800 CST m=+0.004831233 items:[map[id:item1 name:商品1 price:49.9 quantity:1] map[id:item2 name:商品2 price:50 quantity:1]] order_id:o456 status:pending user_id:u123]
+[2025-07-15 10:33:16.817] [taurus-pro-common/bin/main.go:327] [INFO] 订单 order789 创建成功
+[2025-07-15 10:33:16.817] [taurus-pro-common/bin/main.go:328] [ERROR] 订单 order012 支付超时
+[2025-07-15 10:33:16.818] [taurus-pro-common/bin/main.go:347] [INFO] 订单创建: map[amount:99.9 created_at:2025-07-15 10:33:16.818594 +0800 CST m=+0.004672026 items:[map[id:item1 name:商品1 price:49.9 quantity:1] map[id:item2 name:商品2 price:50 quantity:1]] order_id:o456 status:pending user_id:u123]
+[2025-07-15 10:37:58.247] [taurus-pro-common/bin/main.go:327] [INFO] 订单 order789 创建成功
+[2025-07-15 10:37:58.247] [taurus-pro-common/bin/main.go:328] [ERROR] 订单 order012 支付超时
+[2025-07-15 10:37:58.248] [taurus-pro-common/bin/main.go:347] [INFO] 订单创建: map[amount:99.9 created_at:2025-07-15 10:37:58.248361 +0800 CST m=+0.004988552 items:[map[id:item1 name:商品1 price:49.9 quantity:1] map[id:item2 name:商品2 price:50 quantity:1]] order_id:o456 status:pending user_id:u123]
+[2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:327] [INFO] 订单 order789 创建成功
+[2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:328] [ERROR] 订单 order012 支付超时
+[2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:347] [INFO] 订单创建: map[amount:99.9 created_at:2025-07-15 10:49:50.347954 +0800 CST m=+0.003644480 items:[map[id:item1 name:商品1 price:49.9 quantity:1] map[id:item2 name:商品2 price:50 quantity:1]] order_id:o456 status:pending user_id:u123]

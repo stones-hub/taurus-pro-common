@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/olekukonko/tablewriter"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // TableData 定义表格数据
@@ -85,34 +85,89 @@ func sum(nums []int) int {
 	return total
 }
 
-// RenderTable 渲染表格，带颜色
+// RenderTable 渲染表格，支持终端、HTML、Markdown 三种格式
 // headers 表头
 // lines 表格数据
-func RenderTable(headers []string, lines [][]interface{}) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader(headers)
+// format 输出格式："terminal", "html", "markdown"
+func RenderTable(headers []string, lines [][]interface{}, format string) {
+	// 创建表格
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
 
-	// 动态设置颜色
-	headColors := make([]tablewriter.Colors, len(headers))
-	colColors := make([]tablewriter.Colors, len(headers))
+	// 设置表头
+	headerRow := table.Row{}
+	for _, header := range headers {
+		headerRow = append(headerRow, header)
+	}
+	t.AppendHeader(headerRow)
 
-	for i := range headers {
-		headColors[i] = tablewriter.Colors{tablewriter.Bold, tablewriter.FgHiCyanColor}
-		colColors[i] = tablewriter.Colors{tablewriter.FgHiGreenColor + i%5} // 使用不同的颜色
+	// 添加数据行
+	for _, line := range lines {
+		row := table.Row{}
+		for _, item := range line {
+			row = append(row, item)
+		}
+		t.AppendRow(row)
 	}
 
-	table.SetHeaderColor(headColors...)
-	table.SetColumnColor(colColors...)
+	// 根据格式渲染
+	switch format {
+	case "html":
+		t.RenderHTML()
+	case "markdown":
+		t.RenderMarkdown()
+	default: // terminal
+		// 设置终端友好的样式
+		t.SetStyle(table.StyleLight)
+		t.Style().Options.SeparateRows = true
+		t.Style().Options.SeparateColumns = true
+		t.Style().Options.DrawBorder = true
+		t.Style().Options.SeparateHeader = true
+		t.Render()
+	}
+}
 
-	// 填充表格数据
+// RenderTableMarkdown 输出 Markdown 格式表格
+func RenderTableMarkdown(headers []string, lines [][]interface{}) string {
+	var sb strings.Builder
+	// 表头
+	sb.WriteString("| ")
+	sb.WriteString(strings.Join(headers, " | "))
+	sb.WriteString(" |\n")
+	// 分隔符
+	sb.WriteString("|" + strings.Repeat(" --- |", len(headers)))
+	sb.WriteString("\n")
+	// 数据行
 	for _, line := range lines {
 		strLine := make([]string, len(line))
 		for i, item := range line {
-			strLine[i] = fmt.Sprintf("%v", item) // 将每个数据项转换为字符串
+			strLine[i] = fmt.Sprintf("%v", item)
 		}
-		table.Append(strLine)
+		sb.WriteString("| ")
+		sb.WriteString(strings.Join(strLine, " | "))
+		sb.WriteString(" |\n")
 	}
+	return sb.String()
+}
 
-	// 渲染表格
-	table.Render()
+// RenderTableHTML 输出 HTML 格式表格
+func RenderTableHTML(headers []string, lines [][]interface{}) string {
+	var sb strings.Builder
+	sb.WriteString("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\">\n")
+	// 表头
+	sb.WriteString("  <tr>")
+	for _, h := range headers {
+		sb.WriteString(fmt.Sprintf("<th>%v</th>", h))
+	}
+	sb.WriteString("</tr>\n")
+	// 数据行
+	for _, line := range lines {
+		sb.WriteString("  <tr>")
+		for _, item := range line {
+			sb.WriteString(fmt.Sprintf("<td>%v</td>", item))
+		}
+		sb.WriteString("</tr>\n")
+	}
+	sb.WriteString("</table>\n")
+	return sb.String()
 }

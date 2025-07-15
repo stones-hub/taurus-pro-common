@@ -36,8 +36,8 @@ func main() {
 		{5, "项目E", "规划中", "10%", "孙七"},
 	}
 
-	// 使用工具包渲染表格
-	util.RenderTable(headers, data)
+	// 使用工具包渲染表格（终端格式）
+	util.RenderTable(headers, data, "terminal")
 
 	fmt.Println("\n=== Context 测试 ===")
 	contextExample()
@@ -396,8 +396,8 @@ func loggerExample() {
 	}()
 
 	// 模拟一个会导致 panic 的操作
-	var slice []string
-	fmt.Println(slice[100]) // 这会导致 panic
+	//var slice []string
+	//fmt.Println(slice[100]) // 这会导致 panic
 }
 
 func templateExample() {

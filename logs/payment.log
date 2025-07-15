@@ -4,3 +4,12 @@
 [2025-07-02 14:56:08.291] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [INFO] 支付交易 pay345 完成
 [2025-07-02 14:56:08.292] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [ERROR] 支付交易 pay678 失败: 余额不足
 [2025-07-02 14:56:08.292] [/Users/yelei/data/code/projects/go/taurus-pro/taurus-pro-common/bin/main.go:21] [INFO] 支付处理: map[amount:99.9 created_at:2025-07-02 14:56:08.292319 +0800 CST m=+0.004901246 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-07-15 10:33:16.818] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-07-15 10:33:16.818] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-07-15 10:33:16.818] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-07-15 10:33:16.818696 +0800 CST m=+0.004774197 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-07-15 10:37:58.247] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-07-15 10:37:58.248] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-07-15 10:37:58.248] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-07-15 10:37:58.248412 +0800 CST m=+0.005039669 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-07-15 10:49:50.348] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-07-15 10:49:50.347999 +0800 CST m=+0.003689192 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
