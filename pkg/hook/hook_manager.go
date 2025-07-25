@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-var (
-	HookManagerInstance = NewHookManager()
-)
-
 // HookFunc 定义钩子函数类型
 type HookFunc func(ctx context.Context) error
 
