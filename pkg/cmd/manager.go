@@ -209,3 +209,12 @@ func (m *Manager) showHelp() error {
 	fmt.Printf("\n运行 '%s <command> --help' 查看命令的详细信息\n", os.Args[0])
 	return nil
 }
+
+// Clear 清空所有命令
+// 用于测试或重置命令管理器
+// 线程安全：使用写锁保护命令映射表
+func (m *Manager) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.commands = make(map[string]Command)
+}
