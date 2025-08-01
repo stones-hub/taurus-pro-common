@@ -114,7 +114,7 @@ func (e *EnterWechat) AccessToken() (*EnterWechatResp, error) {
 	params["corpid"] = e.Corpid
 	params["corpsecret"] = e.Secret
 
-	if resp, err = HttpRequest(ACCESS_TOKEN_API, "GET", nil, params, nil); err != nil {
+	if resp, err = HttpRequest(ACCESS_TOKEN_API, "GET", nil, params, nil, DefaultTimeout); err != nil {
 
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (e *EnterWechat) SendMessageToUsers(message *EnterWeChatSendMessage, users 
 		message.Safe = 0
 	}
 
-	if resp, err = HttpRequest(SEND_MESSAGE_API, "POST", nil, params, message); err != nil {
+	if resp, err = HttpRequest(SEND_MESSAGE_API, "POST", nil, params, message, DefaultTimeout); err != nil {
 		return nil, err
 	}
 
@@ -481,7 +481,7 @@ func (e *EnterWechat) sendMessage(message *EnterWeChatSendMessage, token string)
 
 	params["access_token"] = token
 
-	if resp, err = HttpRequest(SEND_MESSAGE_API, "POST", nil, params, message); err != nil {
+	if resp, err = HttpRequest(SEND_MESSAGE_API, "POST", nil, params, message, DefaultTimeout); err != nil {
 		return nil, err
 	}
 

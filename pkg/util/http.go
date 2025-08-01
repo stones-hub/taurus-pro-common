@@ -24,7 +24,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+// DefaultTimeout 默认超时时间
+const DefaultTimeout = 30 * time.Second
 
 // doHttpRequest is a generic HTTP request function that handles different types of requests
 // Parameters:
@@ -32,11 +36,12 @@ import (
 //   - url: Target URL
 //   - payload: Request payload (can be map, string, or any JSON-serializable type)
 //   - headers: HTTP headers to be set
+//   - timeout: Request timeout (optional, uses DefaultTimeout if not specified)
 //
 // Returns:
 //   - []byte: Response body
 //   - error: Any error that occurred during the request
-func doHttpRequest(method, url string, payload interface{}, headers map[string]string) ([]byte, error) {
+func doHttpRequest(method, url string, payload interface{}, headers map[string]string, timeout time.Duration) ([]byte, error) {
 	var (
 		err         error
 		request     *http.Request
@@ -44,6 +49,16 @@ func doHttpRequest(method, url string, payload interface{}, headers map[string]s
 		body        []byte
 		jsonPayload []byte
 	)
+
+	// 设置默认超时时间
+	if timeout == 0 {
+		timeout = DefaultTimeout
+	}
+
+	// 创建带超时的HTTP客户端
+	client := &http.Client{
+		Timeout: timeout,
+	}
 
 	// Process payload if it's a map or string type
 	if payload != nil {
@@ -74,7 +89,7 @@ func doHttpRequest(method, url string, payload interface{}, headers map[string]s
 	}
 
 	// Send request
-	if response, err = http.DefaultClient.Do(request); err != nil {
+	if response, err = client.Do(request); err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
@@ -92,15 +107,42 @@ func doHttpRequest(method, url string, payload interface{}, headers map[string]s
 //   - url: Target URL
 //   - payload: Request payload
 //   - headers: HTTP headers to be set
+//   - timeout: Request timeout (optional, uses DefaultTimeout if not specified)
 //
 // Returns:
 //   - []byte: Response body
 //   - error: Any error that occurred during the request
-func HttpPost(url string, payload interface{}, headers map[string]string) ([]byte, error) {
-	return doHttpRequest("POST", url, payload, headers)
+func HttpPost(url string, payload interface{}, headers map[string]string, timeout time.Duration) ([]byte, error) {
+	return doHttpRequest("POST", url, payload, headers, timeout)
+}
+
+// HttpPostWithDefaultTimeout is a convenience function for POST requests with default timeout
+// Parameters:
+//   - url: Target URL
+//   - payload: Request payload
+//   - headers: HTTP headers to be set
+//
+// Returns:
+//   - []byte: Response body
+//   - error: Any error that occurred during the request
+func HttpPostWithDefaultTimeout(url string, payload interface{}, headers map[string]string) ([]byte, error) {
+	return doHttpRequest("POST", url, payload, headers, DefaultTimeout)
 }
 
 // HttpGet is a wrapper for making GET requests
+// Parameters:
+//   - url: Target URL
+//   - headers: HTTP headers to be set
+//   - timeout: Request timeout (optional, uses DefaultTimeout if not specified)
+//
+// Returns:
+//   - []byte: Response body
+//   - error: Any error that occurred during the request
+func HttpGet(url string, headers map[string]string, timeout time.Duration) ([]byte, error) {
+	return doHttpRequest("GET", url, nil, headers, timeout)
+}
+
+// HttpGetWithDefaultTimeout is a convenience function for GET requests with default timeout
 // Parameters:
 //   - url: Target URL
 //   - headers: HTTP headers to be set
@@ -108,8 +150,8 @@ func HttpPost(url string, payload interface{}, headers map[string]string) ([]byt
 // Returns:
 //   - []byte: Response body
 //   - error: Any error that occurred during the request
-func HttpGet(url string, headers map[string]string) ([]byte, error) {
-	return doHttpRequest("GET", url, nil, headers)
+func HttpGetWithDefaultTimeout(url string, headers map[string]string) ([]byte, error) {
+	return doHttpRequest("GET", url, nil, headers, DefaultTimeout)
 }
 
 // HttpRequest is a comprehensive HTTP client wrapper that supports various request types
@@ -119,11 +161,12 @@ func HttpGet(url string, headers map[string]string) ([]byte, error) {
 //   - headers: HTTP headers to be set
 //   - params: URL query parameters
 //   - data: Request body data (will be JSON encoded)
+//   - timeout: Request timeout (optional, uses DefaultTimeout if not specified)
 //
 // Returns:
 //   - *http.Response: HTTP response object
 //   - error: Any error that occurred during the request
-func HttpRequest(URL string, method string, headers map[string]string, params map[string]string, data any) (*http.Response, error) {
+func HttpRequest(URL string, method string, headers map[string]string, params map[string]string, data any, timeout time.Duration) (*http.Response, error) {
 	var (
 		err      error
 		u        *url.URL
@@ -133,6 +176,17 @@ func HttpRequest(URL string, method string, headers map[string]string, params ma
 		req      *http.Request
 		resp     *http.Response
 	)
+
+	// 设置默认超时时间
+	if timeout == 0 {
+		timeout = DefaultTimeout
+	}
+
+	// 创建带超时的HTTP客户端
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
 	// Create URL
 	u, err = url.Parse(URL)
 	if err != nil {
@@ -172,13 +226,28 @@ func HttpRequest(URL string, method string, headers map[string]string, params ma
 	}
 
 	// Send request
-	resp, err = http.DefaultClient.Do(req)
+	resp, err = client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return response for caller to handle
 	return resp, nil
+}
+
+// HttpRequestWithDefaultTimeout is a convenience function for HTTP requests with default timeout
+// Parameters:
+//   - URL: Target URL
+//   - method: HTTP method (GET, POST, etc.)
+//   - headers: HTTP headers to be set
+//   - params: URL query parameters
+//   - data: Request body data (will be JSON encoded)
+//
+// Returns:
+//   - *http.Response: HTTP response object
+//   - error: Any error that occurred during the request
+func HttpRequestWithDefaultTimeout(URL string, method string, headers map[string]string, params map[string]string, data any) (*http.Response, error) {
+	return HttpRequest(URL, method, headers, params, data, DefaultTimeout)
 }
 
 // ReadResponse reads and returns the body of an HTTP response
