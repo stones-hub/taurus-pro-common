@@ -126,34 +126,52 @@ func safeFloat(v interface{}) (float64, bool) {
 func validateOptions(options []Option) error {
 	seenNames := make(map[string]bool)      // 已见过的选项名
 	seenShorthands := make(map[string]bool) // 已见过的短选项名
+	var errors []string                     // 收集所有错误信息
 
-	for _, opt := range options {
+	for i, opt := range options {
 		// 验证选项名
 		if opt.Name == "" {
-			return fmt.Errorf("选项名不能为空")
+			errors = append(errors, fmt.Sprintf("选项[%d]: 选项名不能为空", i+1))
+		} else if seenNames[opt.Name] {
+			errors = append(errors, fmt.Sprintf("选项[%d]: 重复的选项名 '%s'", i+1, opt.Name))
+		} else {
+			seenNames[opt.Name] = true
 		}
-		if seenNames[opt.Name] {
-			return fmt.Errorf("重复的选项名: %s", opt.Name)
-		}
-		seenNames[opt.Name] = true
 
 		// 验证短选项名
 		if opt.Shorthand != "" {
 			if len(opt.Shorthand) != 1 {
-				return fmt.Errorf("短选项名必须是单个字符: %s", opt.Shorthand)
+				errors = append(errors, fmt.Sprintf("选项[%d] '%s': 短选项名必须是单个字符，当前为 '%s' (长度: %d)",
+					i+1, opt.Name, opt.Shorthand, len(opt.Shorthand)))
+			} else if !isValidShortOption(opt.Shorthand[0]) {
+				errors = append(errors, fmt.Sprintf("选项[%d] '%s': 短选项名必须是字母或数字，当前为 '%s'",
+					i+1, opt.Name, opt.Shorthand))
+			} else if seenShorthands[opt.Shorthand] {
+				errors = append(errors, fmt.Sprintf("选项[%d] '%s': 重复的短选项名 '%s'", i+1, opt.Name, opt.Shorthand))
+			} else {
+				seenShorthands[opt.Shorthand] = true
 			}
-			if seenShorthands[opt.Shorthand] {
-				return fmt.Errorf("重复的短选项名: %s", opt.Shorthand)
-			}
-			seenShorthands[opt.Shorthand] = true
 		}
 
 		// 验证默认值类型
 		if opt.Default != nil {
 			if err := validateDefaultValue(opt); err != nil {
-				return fmt.Errorf("选项 %s 的默认值无效: %v", opt.Name, err)
+				errors = append(errors, fmt.Sprintf("选项[%d] '%s': 默认值无效 - %v", i+1, opt.Name, err))
 			}
 		}
+	}
+
+	// 如果有错误，返回格式化的错误信息
+	if len(errors) > 0 {
+		var errMsg strings.Builder
+		errMsg.WriteString("选项配置验证失败:\n")
+		for _, err := range errors {
+			errMsg.WriteString("  • ")
+			errMsg.WriteString(err)
+			errMsg.WriteString("\n")
+		}
+		errMsg.WriteString("\n请检查选项配置并修复上述问题。")
+		return fmt.Errorf("%s", errMsg.String())
 	}
 
 	return nil
@@ -185,6 +203,12 @@ func validateDefaultValue(opt Option) error {
 	return nil
 }
 
+// isValidShortOption 检查短选项字符是否有效
+// 只允许字母和数字作为短选项
+func isValidShortOption(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
 // NewBaseCommand 创建新的基础命令
 // name: 命令名称
 // description: 命令描述
@@ -193,16 +217,33 @@ func validateDefaultValue(opt Option) error {
 // 返回命令实例和错误信息
 func NewBaseCommand(name, description, usage string, options []Option) (*BaseCommand, error) {
 	// 验证输入参数
+	var errors []string
+
 	if name == "" {
-		return nil, fmt.Errorf("命令名不能为空")
+		errors = append(errors, "命令名不能为空")
 	}
 	if description == "" {
-		return nil, fmt.Errorf("命令描述不能为空")
+		errors = append(errors, "命令描述不能为空")
+	}
+	if usage == "" {
+		errors = append(errors, "使用说明不能为空")
+	}
+
+	// 如果有基本参数错误，直接返回
+	if len(errors) > 0 {
+		var errMsg strings.Builder
+		errMsg.WriteString("命令创建失败:\n")
+		for _, err := range errors {
+			errMsg.WriteString("  • ")
+			errMsg.WriteString(err)
+			errMsg.WriteString("\n")
+		}
+		return nil, fmt.Errorf("%s", errMsg.String())
 	}
 
 	// 验证选项配置
 	if err := validateOptions(options); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("命令 '%s' 创建失败: %v", name, err)
 	}
 
 	cmd := &BaseCommand{
