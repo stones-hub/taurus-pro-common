@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -152,102 +151,6 @@ func HttpGet(url string, headers map[string]string, timeout time.Duration) ([]by
 //   - error: Any error that occurred during the request
 func HttpGetWithDefaultTimeout(url string, headers map[string]string) ([]byte, error) {
 	return doHttpRequest("GET", url, nil, headers, DefaultTimeout)
-}
-
-// HttpRequest is a comprehensive HTTP client wrapper that supports various request types
-// Parameters:
-//   - URL: Target URL
-//   - method: HTTP method (GET, POST, etc.)
-//   - headers: HTTP headers to be set
-//   - params: URL query parameters
-//   - data: Request body data (will be JSON encoded)
-//   - timeout: Request timeout (optional, uses DefaultTimeout if not specified)
-//
-// Returns:
-//   - *http.Response: HTTP response object
-//   - error: Any error that occurred during the request
-func HttpRequest(URL string, method string, headers map[string]string, params map[string]string, data any, timeout time.Duration) (*http.Response, error) {
-	var (
-		err      error
-		u        *url.URL
-		query    url.Values
-		body     = &bytes.Buffer{} // Set body data
-		dataJson []byte
-		req      *http.Request
-		resp     *http.Response
-	)
-
-	// 设置默认超时时间
-	if timeout == 0 {
-		timeout = DefaultTimeout
-	}
-
-	// 创建带超时的HTTP客户端
-	client := &http.Client{
-		Timeout: timeout,
-	}
-
-	// Create URL
-	u, err = url.Parse(URL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add query parameters
-	query = u.Query()
-	for k, v := range params {
-		query.Set(k, v)
-	}
-	u.RawQuery = query.Encode()
-
-	// Encode data as JSON
-	if data != nil {
-		dataJson, err = json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		//  fmt.Println("http send data:", string(bodyData))
-		body = bytes.NewBuffer(dataJson)
-	}
-
-	// Create request
-	req, err = http.NewRequest(method, u.String(), body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	if data != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	// Send request
-	resp, err = client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return response for caller to handle
-	return resp, nil
-}
-
-// HttpRequestWithDefaultTimeout is a convenience function for HTTP requests with default timeout
-// Parameters:
-//   - URL: Target URL
-//   - method: HTTP method (GET, POST, etc.)
-//   - headers: HTTP headers to be set
-//   - params: URL query parameters
-//   - data: Request body data (will be JSON encoded)
-//
-// Returns:
-//   - *http.Response: HTTP response object
-//   - error: Any error that occurred during the request
-func HttpRequestWithDefaultTimeout(URL string, method string, headers map[string]string, params map[string]string, data any) (*http.Response, error) {
-	return HttpRequest(URL, method, headers, params, data, DefaultTimeout)
 }
 
 // ReadResponse reads and returns the body of an HTTP response
