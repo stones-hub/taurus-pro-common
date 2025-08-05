@@ -353,6 +353,11 @@ func (c *BaseCommand) generateHelp() string {
 			padding := strings.Repeat(" ", maxLen-len(optName)+2)
 			help.WriteString(fmt.Sprintf("  %s%s%s", optName, padding, opt.Description))
 
+			// 布尔类型特殊说明
+			if opt.Type == OptionTypeBool {
+				help.WriteString(" (无需值)")
+			}
+
 			// 必填标记
 			if opt.Required {
 				help.WriteString(" (必填)")
