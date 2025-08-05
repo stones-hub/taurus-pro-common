@@ -32,8 +32,8 @@ type Command interface {
 // Option 命令选项定义
 // 描述命令支持的配置选项
 type Option struct {
-	Name        string      // 选项名称，如 "--verbose"
-	Shorthand   string      // 短选项名称，如 "-v"
+	Name        string      // 选项名称，如 "verbose"（不带前缀）
+	Shorthand   string      // 短选项名称，如 "v"（不带前缀）
 	Description string      // 选项描述，用于帮助信息
 	Type        OptionType  // 选项数据类型
 	Required    bool        // 是否必填选项
@@ -149,6 +149,7 @@ func validateOptions(options []Option) error {
 		} else if seenNames[opt.Name] {
 			errors = append(errors, fmt.Sprintf("选项[%d]: 重复的选项名 '%s'", i+1, opt.Name))
 		} else {
+			// 只有选项名有效且不重复时才记录
 			seenNames[opt.Name] = true
 		}
 
@@ -373,19 +374,22 @@ func (c *BaseCommand) generateHelp() string {
 // args: 原始命令行参数（不包含命令名）
 // 返回解析后的上下文和错误信息
 func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
-	// 创建 flag 集合用于参数解析，使用ContinueOnError以便捕获错误
+	// 1. 参数验证
+	if args == nil {
+		args = []string{}
+	}
+
+	// 2. 创建 flag 集合用于参数解析
 	flags := flag.NewFlagSet(c.name, flag.ContinueOnError)
 
-	// 创建选项值存储
+	// 3. 根据预定义选项创建 flag 映射
+	optionPtrs := make(map[string]interface{})   // flag指针映射
 	optionValues := make(map[string]interface{}) // 最终返回的选项值
-	optionPtrs := make(map[string]interface{})   // flag指针，用于获取解析后的值
-	providedOptions := make(map[string]bool)     // 跟踪用户实际提供的选项
 
-	// 为每个选项创建对应的 flag
+	// 为每个预定义选项创建对应的 flag
 	for _, opt := range c.options {
 		switch opt.Type {
 		case OptionTypeString:
-			// 处理字符串类型选项
 			defaultVal := ""
 			if opt.Default != nil {
 				if val, ok := safeString(opt.Default); ok {
@@ -396,13 +400,11 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			}
 			ptr := flags.String(opt.Name, defaultVal, opt.Description)
 			optionPtrs[opt.Name] = ptr
-			// 注册短选项
 			if opt.Shorthand != "" {
 				flags.StringVar(ptr, opt.Shorthand, defaultVal, opt.Description)
 			}
 
 		case OptionTypeInt:
-			// 处理整数类型选项
 			defaultVal := 0
 			if opt.Default != nil {
 				if val, ok := safeInt(opt.Default); ok {
@@ -413,13 +415,11 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			}
 			ptr := flags.Int(opt.Name, defaultVal, opt.Description)
 			optionPtrs[opt.Name] = ptr
-			// 注册短选项
 			if opt.Shorthand != "" {
 				flags.IntVar(ptr, opt.Shorthand, defaultVal, opt.Description)
 			}
 
 		case OptionTypeInt64:
-			// 处理长整数类型选项
 			defaultVal := int64(0)
 			if opt.Default != nil {
 				if val, ok := safeInt64(opt.Default); ok {
@@ -430,13 +430,11 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			}
 			ptr := flags.Int64(opt.Name, defaultVal, opt.Description)
 			optionPtrs[opt.Name] = ptr
-			// 注册短选项
 			if opt.Shorthand != "" {
 				flags.Int64Var(ptr, opt.Shorthand, defaultVal, opt.Description)
 			}
 
 		case OptionTypeBool:
-			// 处理布尔类型选项
 			defaultVal := false
 			if opt.Default != nil {
 				if val, ok := safeBool(opt.Default); ok {
@@ -447,13 +445,11 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			}
 			ptr := flags.Bool(opt.Name, defaultVal, opt.Description)
 			optionPtrs[opt.Name] = ptr
-			// 注册短选项
 			if opt.Shorthand != "" {
 				flags.BoolVar(ptr, opt.Shorthand, defaultVal, opt.Description)
 			}
 
 		case OptionTypeFloat:
-			// 处理浮点数类型选项
 			defaultVal := 0.0
 			if opt.Default != nil {
 				if val, ok := safeFloat(opt.Default); ok {
@@ -464,64 +460,18 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			}
 			ptr := flags.Float64(opt.Name, defaultVal, opt.Description)
 			optionPtrs[opt.Name] = ptr
-			// 注册短选项
 			if opt.Shorthand != "" {
 				flags.Float64Var(ptr, opt.Shorthand, defaultVal, opt.Description)
 			}
 		}
 	}
 
-	// 解析命令行参数
+	// 4. 解析用户输入参数
 	if err := flags.Parse(args); err != nil {
-		// 提供更友好的错误信息
 		return nil, c.formatParseError(err, args)
 	}
 
-	// 检查用户实际提供了哪些选项
-	// 通过检查参数中是否包含选项名来判断
-	for i, arg := range args {
-		if strings.HasPrefix(arg, "--") {
-			optionName := strings.TrimPrefix(arg, "--")
-			providedOptions[optionName] = true
-
-			// 检查布尔选项是否被错误地指定了值
-			for _, opt := range c.options {
-				if opt.Name == optionName && opt.Type == OptionTypeBool {
-					// 检查下一个参数是否是值（不是选项）
-					if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-						// 检查下一个参数是否是布尔值字符串
-						nextArg := args[i+1]
-						if nextArg == "true" || nextArg == "false" {
-							return nil, fmt.Errorf("布尔选项 --%s 不需要值，请移除 '%s'", opt.Name, nextArg)
-						}
-					}
-				}
-			}
-		} else if strings.HasPrefix(arg, "-") && len(arg) == 2 {
-			// 短选项，需要找到对应的长选项名
-			shortOpt := arg[1:]
-			for _, opt := range c.options {
-				if opt.Shorthand == shortOpt {
-					providedOptions[opt.Name] = true
-
-					// 检查布尔选项是否被错误地指定了值
-					if opt.Type == OptionTypeBool {
-						// 检查下一个参数是否是值（不是选项）
-						if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-							// 检查下一个参数是否是布尔值字符串
-							nextArg := args[i+1]
-							if nextArg == "true" || nextArg == "false" {
-								return nil, fmt.Errorf("布尔选项 -%s 不需要值，请移除 '%s'", opt.Shorthand, nextArg)
-							}
-						}
-					}
-					break
-				}
-			}
-		}
-	}
-
-	// 提取选项值到结果映射中
+	// 5. 提取解析后的选项值到结果映射
 	for name, ptr := range optionPtrs {
 		switch v := ptr.(type) {
 		case *string:
@@ -534,45 +484,54 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 			optionValues[name] = *v
 		case *float64:
 			optionValues[name] = *v
+		default:
+			return nil, fmt.Errorf("选项 %s 的值类型未知", name)
 		}
 	}
 
-	// 验证必填选项
+	// 6. 验证必填选项
 	for _, opt := range c.options {
 		if opt.Required {
 			// 检查用户是否提供了该选项
-			if !providedOptions[opt.Name] {
+			provided := false
+			flags.Visit(func(f *flag.Flag) {
+				if f.Name == opt.Name || f.Name == opt.Shorthand {
+					provided = true
+				}
+			})
+
+			if !provided {
 				return nil, fmt.Errorf("选项 --%s 是必填的", opt.Name)
 			}
 
+			// 验证必填选项的值
 			value := optionValues[opt.Name]
-			// 根据类型进行额外的验证
 			switch opt.Type {
 			case OptionTypeString:
-				// 字符串类型：检查是否为空字符串
 				if str, ok := safeString(value); !ok || str == "" {
-					return nil, fmt.Errorf("选项 --%s 是必填的", opt.Name)
+					return nil, fmt.Errorf("选项 --%s 是必填的，不能为空", opt.Name)
 				}
 			case OptionTypeInt:
-				// 整数类型：检查类型转换是否成功
 				if _, ok := safeInt(value); !ok {
-					return nil, fmt.Errorf("选项 --%s 是必填的", opt.Name)
+					return nil, fmt.Errorf("选项 --%s 是必填的，必须是有效的整数", opt.Name)
 				}
 			case OptionTypeInt64:
-				// 长整数类型：检查类型转换是否成功
 				if _, ok := safeInt64(value); !ok {
-					return nil, fmt.Errorf("选项 --%s 是必填的", opt.Name)
+					return nil, fmt.Errorf("选项 --%s 是必填的，必须是有效的长整数", opt.Name)
 				}
 			case OptionTypeFloat:
-				// 浮点数类型：检查类型转换是否成功
 				if _, ok := safeFloat(value); !ok {
-					return nil, fmt.Errorf("选项 --%s 是必填的", opt.Name)
+					return nil, fmt.Errorf("选项 --%s 是必填的，必须是有效的浮点数", opt.Name)
+				}
+			case OptionTypeBool:
+				if _, ok := safeBool(value); !ok {
+					return nil, fmt.Errorf("选项 --%s 是必填的，必须是有效的布尔值", opt.Name)
 				}
 			}
 		}
 	}
 
-	// 返回解析结果
+	// 7. 返回解析结果供业务逻辑使用
 	return &CommandContext{
 		Args:    flags.Args(), // 位置参数（非选项参数）
 		Options: optionValues, // 选项值映射

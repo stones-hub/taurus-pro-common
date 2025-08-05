@@ -225,7 +225,7 @@ func NewBuildCommand() (*BuildCommand, error) {
 			Shorthand:   "t",
 			Description: "构建目标 (linux, windows, darwin)",
 			Type:        cmd.OptionTypeString,
-			Required:    false,
+			Required:    true,
 			Default:     "linux",
 		},
 		{
@@ -283,6 +283,8 @@ func (c *BuildCommand) Run(args []string) error {
 	output := ctx.Options["output"].(string)
 	debug := ctx.Options["debug"].(bool)
 	clean := ctx.Options["clean"].(bool)
+
+	fmt.Println(target, arch, output, debug, clean)
 
 	// 模拟构建过程
 	if clean {
