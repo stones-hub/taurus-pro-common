@@ -479,16 +479,42 @@ func (c *BaseCommand) ParseOptions(args []string) (*CommandContext, error) {
 
 	// 检查用户实际提供了哪些选项
 	// 通过检查参数中是否包含选项名来判断
-	for _, arg := range args {
+	for i, arg := range args {
 		if strings.HasPrefix(arg, "--") {
 			optionName := strings.TrimPrefix(arg, "--")
 			providedOptions[optionName] = true
+
+			// 检查布尔选项是否被错误地指定了值
+			for _, opt := range c.options {
+				if opt.Name == optionName && opt.Type == OptionTypeBool {
+					// 检查下一个参数是否是值（不是选项）
+					if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+						// 检查下一个参数是否是布尔值字符串
+						nextArg := args[i+1]
+						if nextArg == "true" || nextArg == "false" {
+							return nil, fmt.Errorf("布尔选项 --%s 不需要值，请移除 '%s'", opt.Name, nextArg)
+						}
+					}
+				}
+			}
 		} else if strings.HasPrefix(arg, "-") && len(arg) == 2 {
 			// 短选项，需要找到对应的长选项名
 			shortOpt := arg[1:]
 			for _, opt := range c.options {
 				if opt.Shorthand == shortOpt {
 					providedOptions[opt.Name] = true
+
+					// 检查布尔选项是否被错误地指定了值
+					if opt.Type == OptionTypeBool {
+						// 检查下一个参数是否是值（不是选项）
+						if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+							// 检查下一个参数是否是布尔值字符串
+							nextArg := args[i+1]
+							if nextArg == "true" || nextArg == "false" {
+								return nil, fmt.Errorf("布尔选项 -%s 不需要值，请移除 '%s'", opt.Shorthand, nextArg)
+							}
+						}
+					}
 					break
 				}
 			}
