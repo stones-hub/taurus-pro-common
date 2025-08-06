@@ -131,7 +131,7 @@ func (cm *CronManager) AddTask(task *Task) (cron.EntryID, error) {
 			for i := 0; i <= task.RetryCount; i++ {
 				// 添加panic恢复机制
 				func() {
-					defer recovery.GlobalPanicRecovery.Recover(task.Name)
+					defer recovery.GlobalPanicRecovery.Recover("定时任务执行错误[taurus-pro-common/pkg/cron/cron.Run()]")
 					err = task.Func(ctx)
 				}()
 

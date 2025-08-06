@@ -83,7 +83,7 @@ func (hm *HookManager) RegisterStopHookDefault(name string, hook HookFunc) {
 
 // Start 执行所有启动钩子
 func (hm *HookManager) Start(ctx context.Context) error {
-	defer recovery.GlobalPanicRecovery.Recover("hook.HookManager.Start")
+	defer recovery.GlobalPanicRecovery.Recover("启动hook函数错误[taurus-pro-common/pkg/hook/hook_manager.Start()]")
 
 	hm.mu.RLock()
 	hooks := make([]HookInfo, len(hm.startHooks))
@@ -115,7 +115,7 @@ func (hm *HookManager) Start(ctx context.Context) error {
 
 // Stop 执行所有停止钩子
 func (hm *HookManager) Stop(ctx context.Context) error {
-	defer recovery.GlobalPanicRecovery.Recover("hook.HookManager.Stop")
+	defer recovery.GlobalPanicRecovery.Recover("停止hook函数错误[taurus-pro-common/pkg/hook/hook_manager.Stop()]")
 
 	hm.mu.RLock()
 	hooks := make([]HookInfo, len(hm.stopHooks))
