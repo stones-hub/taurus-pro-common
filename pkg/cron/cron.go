@@ -130,12 +130,14 @@ func (cm *CronManager) AddTask(task *Task) (cron.EntryID, error) {
 			for i := 0; i <= task.RetryCount; i++ {
 				// 添加panic恢复机制
 				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							err = fmt.Errorf("task panic: %v", r)
-							cm.logger.Printf("Task %s panic: %v", task.Name, r)
-						}
-					}()
+					/*
+						defer func() {
+							if r := recover(); r != nil {
+								err = fmt.Errorf("task panic: %v", r)
+								cm.logger.Printf("Task %s panic: %v", task.Name, r)
+							}
+						}()
+					*/
 					err = task.Func(ctx)
 				}()
 
