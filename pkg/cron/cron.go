@@ -128,7 +128,18 @@ func (cm *CronManager) AddTask(task *Task) (cron.EntryID, error) {
 		// 在新的 goroutine 中执行任务
 		go func() {
 			for i := 0; i <= task.RetryCount; i++ {
-				if err = task.Func(ctx); err == nil {
+				// 添加panic恢复机制
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("task panic: %v", r)
+							cm.logger.Printf("Task %s panic: %v", task.Name, r)
+						}
+					}()
+					err = task.Func(ctx)
+				}()
+
+				if err == nil {
 					done <- nil
 					return
 				}
