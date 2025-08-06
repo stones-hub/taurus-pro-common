@@ -5,10 +5,11 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/stones-hub/taurus-pro-common/pkg/recovery"
 )
 
 // Manager 命令管理器
@@ -92,13 +93,16 @@ func (m *Manager) GetCommands() map[string]Command {
 // 包含panic恢复机制，确保程序稳定性
 func (m *Manager) Run() error {
 	// 设置 panic 恢复，确保程序不会因为命令执行错误而崩溃
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("命令执行出错: %v\n", err)
-			fmt.Printf("堆栈信息:\n%s\n", debug.Stack())
-			os.Exit(1)
-		}
-	}()
+	/*
+		defer func() {
+			if err := recover(); err != nil {
+				fmt.Printf("命令执行出错: %v\n", err)
+				fmt.Printf("堆栈信息:\n%s\n", debug.Stack())
+				os.Exit(1)
+			}
+		}()
+	*/
+	defer recovery.GlobalPanicRecovery.Recover("cmd.Manager.Run")
 
 	// 检查命令行参数
 	if len(os.Args) < 2 {
