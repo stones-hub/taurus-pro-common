@@ -131,9 +131,7 @@ func (cm *CronManager) AddTask(task *Task) (cron.EntryID, error) {
 			for i := 0; i <= task.RetryCount; i++ {
 				// 添加panic恢复机制
 				func() {
-					defer func() {
-						recovery.GlobalPanicRecovery.RecoverWithContext(task.Name, ctx)
-					}()
+					defer recovery.GlobalPanicRecovery.Recover(task.Name)
 					err = task.Func(ctx)
 				}()
 
