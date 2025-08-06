@@ -10,13 +10,13 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0
-	github.com/jedib0t/go-pretty/v6 v6.6.7
+	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/jinzhu/copier v0.4.0
 	github.com/json-iterator/go v1.1.12
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.10.0
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.66
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.68
 	github.com/xhit/go-simple-mail/v2 v2.16.0
 	golang.org/x/crypto v0.40.0
 	golang.org/x/text v0.27.0
@@ -32,7 +32,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mozillazg/go-httpheader v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
