@@ -33,7 +33,7 @@ import (
 //   - 实现了jwt.Claims接口
 //   - 用于生成和解析JWT令牌
 type Claims struct {
-	Uid                uint   `json:"uid"`
+	Uid                string `json:"uid"`
 	Username           string `json:"username"`
 	jwt.StandardClaims        // StandardClaims结构体实现了Claims接口(Valid()函数)
 }
@@ -63,12 +63,12 @@ type Claims struct {
 //   - 使用JwtSecret进行签名
 //   - 签发者设置为"cap-gin"
 //   - 令牌包含生效时间和过期时间
-func GenerateToken(uid uint, username string) (string, error) {
+func GenerateToken(uid string, username string) (string, error) {
 	return GenerateTokenWithExpiration(uid, username, "taurus-pro", "61647649@qq.com", time.Hour*24)
 }
 
 // GenerateTokenWithExpiration 生成具有指定过期时间的JWT令牌
-func GenerateTokenWithExpiration(uid uint, username string, issuer string, secret string, expiration time.Duration) (string, error) {
+func GenerateTokenWithExpiration(uid string, username string, issuer string, secret string, expiration time.Duration) (string, error) {
 	nowTime := time.Now()
 	expireTime := nowTime.Add(expiration)
 	claims := Claims{
@@ -112,13 +112,13 @@ func GenerateTokenWithExpiration(uid uint, username string, issuer string, secre
 //   - 如果令牌无效会返回错误
 //   - 支持HS256算法签名的令牌
 //   - 返回的Claims可以直接访问用户信息
-func ParseToken(tokenString string) (*Claims, error) {
-	return ParseTokenWithSecret(tokenString, "61647649@qq.com")
+func ParseToken(token string) (*Claims, error) {
+	return ParseTokenWithSecret(token, "61647649@qq.com")
 }
 
 // ParseTokenWithSecret 使用指定密钥解析JWT令牌并验证其有效性
 // 参数：
-//   - tokenString: JWT令牌字符串
+//   - token: JWT令牌字符串
 //   - secret: 用于验证签名的密钥
 //
 // 返回值：
@@ -143,19 +143,19 @@ func ParseToken(tokenString string) (*Claims, error) {
 //   - 如果令牌无效会返回错误
 //   - 支持HS256算法签名的令牌
 //   - 返回的Claims可以直接访问用户信息
-func ParseTokenWithSecret(tokenString string, secret string) (*Claims, error) {
+func ParseTokenWithSecret(token string, secret string) (*Claims, error) {
 	// 输入用户token字符串,自定义的Claims结构体对象,以及自定义函数来解析token字符串为jwt的Token结构体指针
-	//Keyfunc是匿名函数类型: type Keyfunc func(*Token) (interface{}, error)
-	//func ParseWithClaims(tokenString string, claims Claims, keyFunc Keyfunc) (*Token, error) {}
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+	// Keyfunc是匿名函数类型: type Keyfunc func(*Token) (interface{}, error)
+	// func ParseWithClaims(tokenString string, claims Claims, keyFunc Keyfunc) (*Token, error) {}
+	jwtToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (any, error) {
 		return []byte(secret), nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	// 将token中的claims信息解析出来,并断言成用户自定义的有效载荷结构
-	claims, ok := token.Claims.(*Claims)
-	if ok && token.Valid {
+	claims, ok := jwtToken.Claims.(*Claims)
+	if ok && jwtToken.Valid {
 		return claims, nil
 	}
 	return nil, errors.New("token不可用")

@@ -10,25 +10,25 @@ import (
 func TestGenerateAndParseToken(t *testing.T) {
 	tests := []struct {
 		name     string
-		uid      uint
+		uid      string
 		username string
 		wantErr  bool
 	}{
 		{
 			name:     "valid user",
-			uid:      12345,
+			uid:      "12345",
 			username: "test_user",
 			wantErr:  false,
 		},
 		{
 			name:     "zero uid",
-			uid:      0,
+			uid:      "0",
 			username: "test_user",
 			wantErr:  false,
 		},
 		{
 			name:     "empty username",
-			uid:      12345,
+			uid:      "12345",
 			username: "",
 			wantErr:  false,
 		},
@@ -118,7 +118,7 @@ func TestExpiredToken(t *testing.T) {
 	expiredTime := nowTime.Add(-1 * time.Second)
 
 	claims := Claims{
-		Uid:      12345,
+		Uid:      "12345",
 		Username: "test_user",
 		StandardClaims: jwt.StandardClaims{
 			NotBefore: nowTime.Add(-2 * time.Second).Unix(), // 2秒前生效
@@ -145,7 +145,7 @@ func TestExpiredToken(t *testing.T) {
 func TestGenerateTokenWithExpiration(t *testing.T) {
 	tests := []struct {
 		name       string
-		uid        uint
+		uid        string
 		username   string
 		issuer     string
 		secret     string
@@ -154,7 +154,7 @@ func TestGenerateTokenWithExpiration(t *testing.T) {
 	}{
 		{
 			name:       "custom expiration",
-			uid:        12345,
+			uid:        "12345",
 			username:   "test_user",
 			issuer:     "custom-issuer",
 			secret:     "custom-secret",
@@ -163,7 +163,7 @@ func TestGenerateTokenWithExpiration(t *testing.T) {
 		},
 		{
 			name:       "short expiration",
-			uid:        12345,
+			uid:        "12345",
 			username:   "test_user",
 			issuer:     "short-issuer",
 			secret:     "short-secret",
