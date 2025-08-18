@@ -60,8 +60,8 @@ func TestGenerateAndParseToken(t *testing.T) {
 			if claims.Username != tt.username {
 				t.Errorf("ParseToken() username = %v, want %v", claims.Username, tt.username)
 			}
-			if claims.Issuer != "cap-gin" {
-				t.Errorf("ParseToken() issuer = %v, want cap-gin", claims.Issuer)
+			if claims.Issuer != "taurus-pro" {
+				t.Errorf("ParseToken() issuer = %v, want taurus-pro", claims.Issuer)
 			}
 
 			// 验证时间相关字段
@@ -110,14 +110,8 @@ func TestParseToken_Invalid(t *testing.T) {
 }
 
 func TestExpiredToken(t *testing.T) {
-	// 修改 JwtSecret 的备份
-	originalSecret := JwtSecret
-	defer func() {
-		JwtSecret = originalSecret
-	}()
-
 	// 使用测试密钥
-	JwtSecret = []byte("test_secret")
+	testSecret := "61647649@qq.com"
 
 	// 创建一个已经过期的token（过期时间设置为当前时间前1秒）
 	nowTime := time.Now()
@@ -129,12 +123,12 @@ func TestExpiredToken(t *testing.T) {
 		StandardClaims: jwt.StandardClaims{
 			NotBefore: nowTime.Add(-2 * time.Second).Unix(), // 2秒前生效
 			ExpiresAt: expiredTime.Unix(),                   // 1秒前过期
-			Issuer:    "cap-gin",
+			Issuer:    "taurus-pro",
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(JwtSecret)
+	tokenString, err := token.SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -146,4 +140,82 @@ func TestExpiredToken(t *testing.T) {
 	} else {
 		t.Logf("Got expected error for expired token: %v", err)
 	}
+}
+
+func TestGenerateTokenWithExpiration(t *testing.T) {
+	tests := []struct {
+		name       string
+		uid        uint
+		username   string
+		issuer     string
+		secret     string
+		expiration time.Duration
+		wantErr    bool
+	}{
+		{
+			name:       "custom expiration",
+			uid:        12345,
+			username:   "test_user",
+			issuer:     "custom-issuer",
+			secret:     "custom-secret",
+			expiration: time.Hour * 2,
+			wantErr:    false,
+		},
+		{
+			name:       "short expiration",
+			uid:        12345,
+			username:   "test_user",
+			issuer:     "short-issuer",
+			secret:     "short-secret",
+			expiration: time.Minute * 5,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 生成自定义token
+			token, err := GenerateTokenWithExpiration(tt.uid, tt.username, tt.issuer, tt.secret, tt.expiration)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GenerateTokenWithExpiration() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			// 使用相同的密钥解析token
+			claims, err := ParseTokenWithSecret(token, tt.secret)
+			if err != nil {
+				t.Errorf("ParseTokenWithSecret() error = %v", err)
+				return
+			}
+
+			// 验证解析出的信息
+			if claims.Uid != tt.uid {
+				t.Errorf("ParseToken() uid = %v, want %v", claims.Uid, tt.uid)
+			}
+			if claims.Username != tt.username {
+				t.Errorf("ParseToken() username = %v, want %v", claims.Username, tt.username)
+			}
+			if claims.Issuer != tt.issuer {
+				t.Errorf("ParseToken() issuer = %v, want %v", claims.Issuer, tt.issuer)
+			}
+
+			// 验证过期时间
+			expectedExpiry := time.Now().Add(tt.expiration).Unix()
+			// 允许1秒的误差
+			if abs(claims.ExpiresAt-expectedExpiry) > 1 {
+				t.Errorf("ParseToken() expiresAt = %v, want close to %v", claims.ExpiresAt, expectedExpiry)
+			}
+		})
+	}
+}
+
+// abs 返回整数的绝对值
+func abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
