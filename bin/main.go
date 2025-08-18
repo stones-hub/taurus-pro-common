@@ -13,7 +13,7 @@ import (
 	"github.com/stones-hub/taurus-pro-common/pkg/ctx"
 	"github.com/stones-hub/taurus-pro-common/pkg/logx"
 	"github.com/stones-hub/taurus-pro-common/pkg/templates"
-	"github.com/stones-hub/taurus-pro-common/pkg/util"
+	"github.com/stones-hub/taurus-pro-common/pkg/util/ttable"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// 使用工具包渲染表格（终端格式）
-	util.RenderTable(headers, data, "terminal")
+	ttable.RenderTable(headers, data, "terminal")
 
 	fmt.Println("\n=== Context 测试 ===")
 	contextExample()

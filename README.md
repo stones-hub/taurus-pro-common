@@ -314,6 +314,37 @@ func myFunction() {
 - 可配置恢复行为
 - 支持自定义处理器
 
+### 9. 通用工具函数 (pkg/utils)
+
+按功能分类组织的通用工具函数集合。
+
+```go
+import "github.com/stones-hub/taurus-pro-common/pkg/utils"
+
+// 字符串工具
+reversed := utils.ReverseString("Hello")
+randomStr := utils.RandString(10)
+
+// 时间工具
+timestamp := utils.GetUnixMilliSeconds()
+formatted := utils.TimeFormatter(time.Now())
+
+// 验证工具
+isValid := utils.CheckEmail("user@example.com")
+isValidID := utils.CheckIDCard("110101199001011234")
+
+// 网络工具
+localIP, _ := utils.GetLocalIP()
+isOpen := utils.IsPortOpen("localhost", 8080, 5*time.Second)
+```
+
+**特性:**
+- 按功能分类组织
+- 完整的函数注释
+- 支持中文场景
+- 线程安全设计
+- 丰富的验证功能
+
 ## 📚 使用示例
 
 ### 完整的Web应用示例

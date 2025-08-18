@@ -26,7 +26,7 @@ import (
 	"sync"
 
 	"github.com/natefinch/lumberjack"
-	"github.com/stones-hub/taurus-pro-common/pkg/util"
+	"github.com/stones-hub/taurus-pro-common/pkg/util/tfs"
 )
 
 var defaultConfig = LoggerOptions{
@@ -128,7 +128,7 @@ func (l *Logger) log(level Level, extraSkip int, format string, args ...interfac
 	}
 
 	// 获取最后3个路径段
-	last, err := util.GetLastPathSegments(file, 3)
+	last, err := tfs.GetLastPathSegments(file, 3)
 	if err != nil {
 		last = file
 	}
