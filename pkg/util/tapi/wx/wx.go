@@ -817,7 +817,7 @@ func (e *EnterWechat) prepareMessage(msgType string, safe int) *EnterWeChatSendM
 		Safe:                   safe,
 		EnableIdTrans:          0,
 		EnableDuplicateCheck:   1,
-		DuplicateCheckInterval: 60,
+		DuplicateCheckInterval: 60, // 默认60秒，重复消息检查时间间隔
 	}
 }
 
