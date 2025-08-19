@@ -688,3 +688,182 @@ func TestToJSONString(t *testing.T) {
 		t.Error("ToJSONString() should return empty string for invalid data")
 	}
 }
+
+func TestParseToSlice(t *testing.T) {
+	// 测试简单字符串数组
+	t.Run("simple string array", func(t *testing.T) {
+		jsonStr := `["张三", "李四", "王五"]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		expected := []interface{}{"张三", "李四", "王五"}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("ParseToSlice() = %v, want %v", result, expected)
+		}
+	})
+
+	// 测试数字数组
+	t.Run("number array", func(t *testing.T) {
+		jsonStr := `[1, 2, 3, 4, 5]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		expected := []interface{}{int64(1), int64(2), int64(3), int64(4), int64(5)}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("ParseToSlice() = %v, want %v", result, expected)
+		}
+	})
+
+	// 测试混合类型数组
+	t.Run("mixed type array", func(t *testing.T) {
+		jsonStr := `["hello", 123, true, null, 45.67]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		expected := []interface{}{"hello", int64(123), true, nil, 45.67}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("ParseToSlice() = %v, want %v", result, expected)
+		}
+	})
+
+	// 测试嵌套对象数组
+	t.Run("nested object array", func(t *testing.T) {
+		jsonStr := `[
+			{"name": "张三", "age": 25, "city": "北京"},
+			{"name": "李四", "age": 30, "city": "上海"},
+			{"name": "王五", "age": 28, "city": "广州"}
+		]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 3 {
+			t.Errorf("ParseToSlice() returned %d items, want 3", len(result))
+			return
+		}
+
+		// 验证第一个用户
+		firstUser, ok := result[0].(map[string]interface{})
+		if !ok {
+			t.Error("first item is not a map")
+			return
+		}
+
+		if firstUser["name"] != "张三" || firstUser["age"] != int64(25) || firstUser["city"] != "北京" {
+			t.Errorf("first user data incorrect: %v", firstUser)
+		}
+	})
+
+	// 测试嵌套数组
+	t.Run("nested array", func(t *testing.T) {
+		jsonStr := `[
+			[1, 2, 3],
+			["a", "b", "c"],
+			[true, false]
+		]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 3 {
+			t.Errorf("ParseToSlice() returned %d items, want 3", len(result))
+			return
+		}
+
+		// 验证第一个嵌套数组
+		firstNested, ok := result[0].([]interface{})
+		if !ok {
+			t.Error("first item is not an array")
+			return
+		}
+
+		expectedFirst := []interface{}{int64(1), int64(2), int64(3)}
+		if !reflect.DeepEqual(firstNested, expectedFirst) {
+			t.Errorf("first nested array = %v, want %v", firstNested, expectedFirst)
+		}
+	})
+
+	// 测试空数组
+	t.Run("empty array", func(t *testing.T) {
+		jsonStr := `[]`
+		result, err := Default.ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 0 {
+			t.Errorf("ParseToSlice() returned %d items, want 0", len(result))
+		}
+	})
+
+	// 测试无效的JSON字符串
+	t.Run("invalid JSON", func(t *testing.T) {
+		invalidJSONs := []string{
+			`[1, 2, 3`,         // 缺少右括号
+			`["hello", 123, ]`, // 末尾多余的逗号
+			`[1, "hello", }`,   // 语法错误
+			`not json`,         // 非JSON格式
+		}
+
+		for _, invalidJSON := range invalidJSONs {
+			_, err := Default.ParseToSlice(invalidJSON)
+			if err == nil {
+				t.Errorf("ParseToSlice() should fail for invalid JSON: %s", invalidJSON)
+			}
+		}
+	})
+
+	// 测试非数组JSON
+	t.Run("non-array JSON", func(t *testing.T) {
+		nonArrayJSONs := []string{
+			`{"name": "张三", "age": 25}`, // 对象
+			`"hello"`,                   // 字符串
+			`123`,                       // 数字
+			`true`,                      // 布尔值
+		}
+
+		for _, nonArrayJSON := range nonArrayJSONs {
+			_, err := Default.ParseToSlice(nonArrayJSON)
+			if err == nil {
+				t.Errorf("ParseToSlice() should fail for non-array JSON: %s", nonArrayJSON)
+			}
+		}
+	})
+
+	// 测试空字符串
+	t.Run("empty string", func(t *testing.T) {
+		_, err := Default.ParseToSlice("")
+		if err == nil {
+			t.Error("ParseToSlice() should fail for empty string")
+		}
+	})
+
+	// 测试静态函数
+	t.Run("static function", func(t *testing.T) {
+		jsonStr := `["test", 123]`
+		result, err := ParseToSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToSlice() static function error = %v", err)
+			return
+		}
+
+		expected := []interface{}{"test", int64(123)}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("ParseToSlice() static function = %v, want %v", result, expected)
+		}
+	})
+}

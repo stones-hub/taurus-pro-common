@@ -370,6 +370,60 @@ func (j *JSONUtil) UnmarshalString(data string, v interface{}) error {
 	return j.Unmarshal([]byte(data), v)
 }
 
+// ParseToSlice 将JSON字符串解析为[]interface{}切片
+// 参数：
+//   - data: 要解析的JSON字符串
+//
+// 返回值：
+//   - []interface{}: 解析后的切片
+//   - error: 解析过程中的错误，如果成功则为nil
+//
+// 使用示例：
+//
+//	jsonStr := `["张三", "李四", "王五"]`
+//	result, err := util.ParseToSlice(jsonStr)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for i, item := range result {
+//	    fmt.Printf("第%d项: %v\n", i+1, item)
+//	}
+//
+//	// 解析复杂数组
+//	complexJSON := `[
+//	    {"name": "张三", "age": 25},
+//	    {"name": "李四", "age": 30},
+//	    {"name": "王五", "age": 28}
+//	]`
+//	users, err := util.ParseToSlice(complexJSON)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for _, user := range users {
+//	    if userMap, ok := user.(map[string]interface{}); ok {
+//	        fmt.Printf("用户: %v, 年龄: %v\n", userMap["name"], userMap["age"])
+//	    }
+//	}
+//
+// 注意事项：
+//   - 只支持JSON数组格式
+//   - 不支持JSON对象格式
+//   - 会自动处理数字类型
+//   - 支持嵌套结构
+//   - 空字符串会返回错误
+//   - 适用于解析JSON数组数据
+func (j *JSONUtil) ParseToSlice(data string) ([]interface{}, error) {
+	var result []interface{}
+	if err := j.api.Unmarshal([]byte(data), &result); err != nil {
+		return nil, fmt.Errorf("json unmarshal to slice failed: %w", err)
+	}
+
+	if j.config.UseNumber {
+		return j.convertArray(result), nil
+	}
+	return result, nil
+}
+
 // Marshal 将任意数据序列化为JSON字节数组
 // 参数：
 //   - v: 要序列化的数据（结构体、map、切片等）
@@ -1413,6 +1467,10 @@ func ParseReader(reader io.Reader) (map[string]interface{}, error) {
 
 func ParseRequest(r *http.Request) (map[string]interface{}, error) {
 	return Default.ParseRequest(r)
+}
+
+func ParseToSlice(data string) ([]interface{}, error) {
+	return Default.ParseToSlice(data)
 }
 
 func Unmarshal(data []byte, v interface{}) error {
