@@ -424,6 +424,76 @@ func (j *JSONUtil) ParseToSlice(data string) ([]interface{}, error) {
 	return result, nil
 }
 
+// ParseToMapSlice 将JSON数组字符串解析为[]map[string]interface{}切片
+// 参数：
+//   - data: 要解析的JSON数组字符串
+//
+// 返回值：
+//   - []map[string]interface{}: 解析后的map切片
+//   - error: 解析过程中的错误，如果成功则为nil
+//
+// 使用示例：
+//
+//	jsonStr := `[
+//	    {"name": "张三", "age": 25, "city": "北京"},
+//	    {"name": "李四", "age": 30, "city": "上海"},
+//	    {"name": "王五", "age": 28, "city": "广州"}
+//	]`
+//	result, err := util.ParseToMapSlice(jsonStr)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for i, user := range result {
+//	    fmt.Printf("第%d个用户: %s, 年龄: %v, 城市: %s\n",
+//	        i+1, user["name"], user["age"], user["city"])
+//	}
+//
+//	// 解析配置数组
+//	configJSON := `[
+//	    {"key": "timeout", "value": 30, "enabled": true},
+//	    {"key": "retry", "value": 3, "enabled": false},
+//	    {"key": "debug", "value": "info", "enabled": true}
+//	]`
+//	configs, err := util.ParseToMapSlice(configJSON)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for _, config := range configs {
+//	    fmt.Printf("配置: %s = %v (启用: %v)\n",
+//	        config["key"], config["value"], config["enabled"])
+//	}
+//
+// 注意事项：
+//   - 只支持JSON数组格式
+//   - 数组中的每个元素必须是JSON对象
+//   - 不支持混合类型数组
+//   - 会自动处理数字类型
+//   - 空字符串会返回错误
+//   - 适用于解析对象数组数据
+//   - 如果数组包含非对象元素会返回错误
+func (j *JSONUtil) ParseToMapSlice(data string) ([]map[string]interface{}, error) {
+	var result []interface{}
+	if err := j.api.Unmarshal([]byte(data), &result); err != nil {
+		return nil, fmt.Errorf("json unmarshal to slice failed: %w", err)
+	}
+
+	// 转换为map切片
+	mapSlice := make([]map[string]interface{}, 0, len(result))
+	for i, item := range result {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			if j.config.UseNumber {
+				mapSlice = append(mapSlice, j.convertNumbers(itemMap))
+			} else {
+				mapSlice = append(mapSlice, itemMap)
+			}
+		} else {
+			return nil, fmt.Errorf("array element at index %d is not a JSON object, got %T", i, item)
+		}
+	}
+
+	return mapSlice, nil
+}
+
 // Marshal 将任意数据序列化为JSON字节数组
 // 参数：
 //   - v: 要序列化的数据（结构体、map、切片等）
@@ -1471,6 +1541,10 @@ func ParseRequest(r *http.Request) (map[string]interface{}, error) {
 
 func ParseToSlice(data string) ([]interface{}, error) {
 	return Default.ParseToSlice(data)
+}
+
+func ParseToMapSlice(data string) ([]map[string]interface{}, error) {
+	return Default.ParseToMapSlice(data)
 }
 
 func Unmarshal(data []byte, v interface{}) error {

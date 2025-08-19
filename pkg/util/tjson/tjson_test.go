@@ -867,3 +867,260 @@ func TestParseToSlice(t *testing.T) {
 		}
 	})
 }
+
+func TestParseToMapSlice(t *testing.T) {
+	// 测试简单对象数组
+	t.Run("simple object array", func(t *testing.T) {
+		jsonStr := `[
+			{"name": "张三", "age": 25, "city": "北京"},
+			{"name": "李四", "age": 30, "city": "上海"},
+			{"name": "王五", "age": 28, "city": "广州"}
+		]`
+		result, err := Default.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 3 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 3", len(result))
+			return
+		}
+
+		// 验证第一个用户
+		firstUser := result[0]
+		if firstUser["name"] != "张三" || firstUser["age"] != int64(25) || firstUser["city"] != "北京" {
+			t.Errorf("first user data incorrect: %v", firstUser)
+		}
+
+		// 验证第二个用户
+		secondUser := result[1]
+		if secondUser["name"] != "李四" || secondUser["age"] != int64(30) || secondUser["city"] != "上海" {
+			t.Errorf("second user data incorrect: %v", secondUser)
+		}
+	})
+
+	// 测试配置对象数组
+	t.Run("config object array", func(t *testing.T) {
+		jsonStr := `[
+			{"key": "timeout", "value": 30, "enabled": true},
+			{"key": "retry", "value": 3, "enabled": false},
+			{"key": "debug", "value": "info", "enabled": true}
+		]`
+		result, err := Default.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 3 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 3", len(result))
+			return
+		}
+
+		// 验证配置项
+		timeoutConfig := result[0]
+		if timeoutConfig["key"] != "timeout" || timeoutConfig["value"] != int64(30) || timeoutConfig["enabled"] != true {
+			t.Errorf("timeout config incorrect: %v", timeoutConfig)
+		}
+
+		retryConfig := result[1]
+		if retryConfig["key"] != "retry" || retryConfig["value"] != int64(3) || retryConfig["enabled"] != false {
+			t.Errorf("retry config incorrect: %v", retryConfig)
+		}
+	})
+
+	// 测试空数组
+	t.Run("empty array", func(t *testing.T) {
+		jsonStr := `[]`
+		result, err := Default.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 0 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 0", len(result))
+		}
+	})
+
+	// 测试单个对象数组
+	t.Run("single object array", func(t *testing.T) {
+		jsonStr := `[{"id": 1, "name": "测试"}]`
+		result, err := Default.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 1 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 1", len(result))
+			return
+		}
+
+		item := result[0]
+		if item["id"] != int64(1) || item["name"] != "测试" {
+			t.Errorf("single item data incorrect: %v", item)
+		}
+	})
+
+	// 测试嵌套对象数组
+	t.Run("nested object array", func(t *testing.T) {
+		jsonStr := `[
+			{"user": {"name": "张三", "profile": {"age": 25, "city": "北京"}}},
+			{"user": {"name": "李四", "profile": {"age": 30, "city": "上海"}}}
+		]`
+		result, err := Default.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() error = %v", err)
+			return
+		}
+
+		if len(result) != 2 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 2", len(result))
+			return
+		}
+
+		// 验证嵌套结构
+		firstItem := result[0]
+		user, ok := firstItem["user"].(map[string]interface{})
+		if !ok {
+			t.Error("user field is not a map")
+			return
+		}
+
+		if user["name"] != "张三" {
+			t.Errorf("user name incorrect: %v", user["name"])
+		}
+
+		profile, ok := user["profile"].(map[string]interface{})
+		if !ok {
+			t.Error("profile field is not a map")
+			return
+		}
+
+		if profile["age"] != int64(25) || profile["city"] != "北京" {
+			t.Errorf("profile data incorrect: %v", profile)
+		}
+	})
+
+	// 测试混合类型数组（应该失败）
+	t.Run("mixed type array should fail", func(t *testing.T) {
+		jsonStr := `[
+			{"name": "张三", "age": 25},
+			"not an object",
+			{"name": "李四", "age": 30}
+		]`
+		_, err := Default.ParseToMapSlice(jsonStr)
+		if err == nil {
+			t.Error("ParseToMapSlice() should fail for mixed type array")
+		}
+	})
+
+	// 测试非对象数组（应该失败）
+	t.Run("non-object array should fail", func(t *testing.T) {
+		nonObjectArrays := []string{
+			`["hello", "world"]`,          // 字符串数组
+			`[1, 2, 3]`,                   // 数字数组
+			`[true, false]`,               // 布尔数组
+			`[null, null]`,                // null数组
+			`[{"name": "张三"}, "invalid"]`, // 混合类型
+		}
+
+		for _, jsonStr := range nonObjectArrays {
+			_, err := Default.ParseToMapSlice(jsonStr)
+			if err == nil {
+				t.Errorf("ParseToMapSlice() should fail for: %s", jsonStr)
+			}
+		}
+	})
+
+	// 测试无效的JSON字符串
+	t.Run("invalid JSON", func(t *testing.T) {
+		invalidJSONs := []string{
+			`[{name: "张三"}]`,           // 缺少引号
+			`[{"name": "张三",}]`,        // 末尾多余的逗号
+			`[{"name": "张三", "age": }`, // 缺少值
+			`not json`,                 // 非JSON格式
+		}
+
+		for _, invalidJSON := range invalidJSONs {
+			_, err := Default.ParseToMapSlice(invalidJSON)
+			if err == nil {
+				t.Errorf("ParseToMapSlice() should fail for invalid JSON: %s", invalidJSON)
+			}
+		}
+	})
+
+	// 测试非数组JSON（应该失败）
+	t.Run("non-array JSON should fail", func(t *testing.T) {
+		nonArrayJSONs := []string{
+			`{"name": "张三", "age": 25}`, // 对象
+			`"hello"`,                   // 字符串
+			`123`,                       // 数字
+			`true`,                      // 布尔值
+		}
+
+		for _, nonArrayJSON := range nonArrayJSONs {
+			_, err := Default.ParseToMapSlice(nonArrayJSON)
+			if err == nil {
+				t.Errorf("ParseToMapSlice() should fail for non-array JSON: %s", nonArrayJSON)
+			}
+		}
+	})
+
+	// 测试空字符串
+	t.Run("empty string", func(t *testing.T) {
+		_, err := Default.ParseToMapSlice("")
+		if err == nil {
+			t.Error("ParseToMapSlice() should fail for empty string")
+		}
+	})
+
+	// 测试静态函数
+	t.Run("static function", func(t *testing.T) {
+		jsonStr := `[{"id": 1, "name": "测试"}]`
+		result, err := ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() static function error = %v", err)
+			return
+		}
+
+		if len(result) != 1 {
+			t.Errorf("ParseToMapSlice() static function returned %d items, want 1", len(result))
+			return
+		}
+
+		item := result[0]
+		if item["id"] != int64(1) || item["name"] != "测试" {
+			t.Errorf("ParseToMapSlice() static function data incorrect: %v", item)
+		}
+	})
+
+	// 测试UseNumber配置
+	t.Run("UseNumber configuration", func(t *testing.T) {
+		// 创建使用UseNumber配置的实例
+		util := New(Config{UseNumber: true})
+
+		jsonStr := `[{"id": 123, "score": 99.5}]`
+		result, err := util.ParseToMapSlice(jsonStr)
+		if err != nil {
+			t.Errorf("ParseToMapSlice() with UseNumber error = %v", err)
+			return
+		}
+
+		if len(result) != 1 {
+			t.Errorf("ParseToMapSlice() returned %d items, want 1", len(result))
+			return
+		}
+
+		item := result[0]
+		// 验证数字类型处理
+		if item["id"] != int64(123) {
+			t.Errorf("id field type incorrect: %T, value: %v", item["id"], item["id"])
+		}
+		if item["score"] != 99.5 {
+			t.Errorf("score field type incorrect: %T, value: %v", item["score"], item["score"])
+		}
+	})
+}
