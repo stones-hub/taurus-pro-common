@@ -2,6 +2,7 @@ package co
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/stones-hub/taurus-pro-common/pkg/recovery"
@@ -51,23 +52,24 @@ func WrapErrorFunctionWithCallback(component string, fn func() error, callback f
 
 // GoWithTimeout 同步版本，带超时控制函数
 func GoWithTimeout(component string, timeout time.Duration, fn func(ctx context.Context)) {
-
-	// 创建协程执行完毕的channel
-	done := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	done := make(chan struct{})
+	var once sync.Once
+	closeDone := func() { once.Do(func() { close(done) }) }
+	defer closeDone() // 保险：确保done channel总是被关闭
 
 	recovery.GlobalPanicRecovery.SafeGo(component, func() {
-		fn(ctx) // 注意业务逻辑中需要监听ctx来判断是否超时后结束
-		close(done)
+		defer closeDone() // 确保无论是否panic都会关闭channel
+		fn(ctx)
 	})
 
 	select {
-	case <-done:
-		// 函数正常完成
-		return
 	case <-ctx.Done():
-		// 超时
+		// 超时，立即返回
+		return
+	case <-done:
+		// 正常完成，立即返回
 		return
 	}
 }
@@ -81,29 +83,31 @@ func AsyncGoWithTimeout(component string, timeout time.Duration, fn func(ctx con
 
 // GoWithTimeoutCallback 同步版本，带回调的超时控制函数
 func GoWithTimeoutCallback(component string, timeout time.Duration, fn func(ctx context.Context), callback func()) {
-	// 创建协程执行完毕的channel
-	done := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	done := make(chan struct{})
+	var once sync.Once
+	closeDone := func() { once.Do(func() { close(done) }) }
+	defer closeDone() // 保险：确保done channel总是被关闭
 
 	recovery.GlobalPanicRecovery.SafeGoWithCallback(component, func() {
-		fn(ctx) // 注意业务逻辑中需要监听ctx来判断是否超时后结束
-		close(done)
-	}, callback) // callback 无论是否panic都会执行
+		defer closeDone() // 确保无论是否panic都会关闭channel
+		fn(ctx)
+	}, callback)
 
 	select {
-	case <-done:
-		// 函数正常完成
-		return
 	case <-ctx.Done():
-		// 超时
+		// 超时，立即返回
+		return
+	case <-done:
+		// 正常完成，立即返回
 		return
 	}
 }
 
 // AsyncGoWithTimeoutCallback 异步版本，带回调的超时控制函数
 func AsyncGoWithTimeoutCallback(component string, timeout time.Duration, fn func(ctx context.Context), callback func()) {
-	recovery.GlobalPanicRecovery.SafeGoWithCallback(component, func() {
+	recovery.GlobalPanicRecovery.SafeGo(component, func() {
 		GoWithTimeoutCallback(component, timeout, fn, callback)
-	}, callback)
+	})
 }
