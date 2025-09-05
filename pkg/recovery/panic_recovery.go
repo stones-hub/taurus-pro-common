@@ -13,12 +13,11 @@ import (
 
 // PanicInfo panic信息结构
 type PanicInfo struct {
-	Component   string          // 组件名称
-	Error       interface{}     // 错误信息
-	Stack       string          // 堆栈信息
-	Timestamp   time.Time       // 时间戳
-	GoroutineID string          // goroutine ID
-	Context     context.Context // 上下文
+	Component   string      // 组件名称
+	Error       interface{} // 错误信息
+	Stack       string      // 堆栈信息
+	Timestamp   time.Time   // 时间戳
+	GoroutineID string      // goroutine ID
 }
 
 // ---------------------------- PanicHandler实现 --------------------------------
@@ -196,9 +195,10 @@ func getGoroutineID() string {
 }
 
 // handlePanic 统一的panic处理逻辑
-func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx context.Context) {
+func (pr *PanicRecovery) handlePanic(component string, err interface{}) {
 
-	hctx, cancel := context.WithTimeout(ctx, pr.options.HandlerTimeout)
+	// 创建独立的context，避免外部context生命周期问题,  只用来控制handler执行超时
+	ctx, cancel := context.WithTimeout(context.Background(), pr.options.HandlerTimeout)
 	defer cancel()
 
 	// 1. 构建panic信息
@@ -207,7 +207,6 @@ func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx cont
 		Error:       err,
 		Timestamp:   time.Now(),
 		GoroutineID: getGoroutineID(),
-		Context:     hctx,
 	}
 
 	if pr.options.EnableStackTrace {
@@ -245,15 +244,45 @@ func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx cont
 				}
 			}()
 
-			// 直接调用处理器, 建议考虑HandlePanic的实现，需要有超时控制
-			if err := h.HandlePanic(info); err != nil {
-				log.Printf("❌ 处理器执行失败: %v", err)
+			// 使用context控制handler执行超时
+			done := make(chan error, 1)
+			go func() {
+				defer func() {
+					// 防止goroutine泄漏，确保done channel总是被写入
+					if r := recover(); r != nil {
+						done <- fmt.Errorf("handler panic: %v", r)
+					}
+				}()
+				done <- h.HandlePanic(info)
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					log.Printf("❌ 处理器执行失败: %v", err)
+				}
+			case <-ctx.Done():
+				log.Printf("❌ 处理器执行超时: %v", ctx.Err())
+				// 超时后不再等待handler完成，直接返回
+				return
 			}
 		}(handler)
 	}
 
-	// 等待所有处理器完成
-	wg.Wait()
+	// 等待所有处理器完成，但设置超时
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// 所有处理器完成
+	case <-ctx.Done():
+		log.Printf("❌ 处理器整体执行超时: %v", ctx.Err())
+		// 超时后不再等待，直接返回
+	}
 }
 
 // Recover 恢复panic
@@ -263,18 +292,7 @@ func (pr *PanicRecovery) Recover(component string) {
 	}
 
 	if r := recover(); r != nil {
-		pr.handlePanic(component, r, context.Background())
-	}
-}
-
-// RecoverWithContext 恢复panic并传递上下文
-func (pr *PanicRecovery) RecoverWithContext(component string, ctx context.Context) {
-	if !pr.IsEnabled() {
-		return
-	}
-
-	if r := recover(); r != nil {
-		pr.handlePanic(component, r, ctx)
+		pr.handlePanic(component, r)
 	}
 }
 
@@ -285,7 +303,7 @@ func (pr *PanicRecovery) RecoverWithCallback(component string, callback func()) 
 	}
 
 	if r := recover(); r != nil {
-		pr.handlePanic(component, r, context.Background())
+		pr.handlePanic(component, r)
 
 		// 执行回调
 		if callback != nil {
@@ -316,29 +334,6 @@ func (pr *PanicRecovery) SafeGo(component string, fn func()) {
 
 	go func() {
 		defer pr.Recover(component)
-		fn()
-	}()
-}
-
-// SafeGoWithContext 安全地启动goroutine并传递上下文
-func (pr *PanicRecovery) SafeGoWithContext(component string, ctx context.Context, fn func()) {
-	if fn == nil {
-		log.Printf("⚠️ 尝试启动空的goroutine函数")
-		return
-	}
-
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if !pr.IsEnabled() {
-		go fn()
-		return
-	}
-
-	go func() {
-		// 使用传入的上下文进行panic恢复，业务逻辑由fn内部自己管理上下文
-		defer pr.RecoverWithContext(component, ctx)
 		fn()
 	}()
 }
@@ -377,26 +372,6 @@ func (pr *PanicRecovery) WrapFunction(component string, fn func()) func() {
 	}
 }
 
-// WrapFunctionWithContext 包装函数以添加panic恢复和上下文
-func (pr *PanicRecovery) WrapFunctionWithContext(component string, ctx context.Context, fn func()) func() {
-	if fn == nil {
-		return func() {}
-	}
-
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if !pr.IsEnabled() {
-		return fn
-	}
-
-	return func() {
-		defer pr.RecoverWithContext(component, ctx)
-		fn()
-	}
-}
-
 // WrapFunctionWithCallback 包装函数以添加panic恢复和回调
 func (pr *PanicRecovery) WrapFunctionWithCallback(component string, fn func(), callback func()) func() {
 	if fn == nil {
@@ -429,14 +404,10 @@ func (pr *PanicRecovery) WrapErrorFunction(component string, fn func() error) fu
 	}
 }
 
-// WrapErrorFunctionWithContext 包装返回错误的函数并传递上下文
-func (pr *PanicRecovery) WrapErrorFunctionWithContext(component string, ctx context.Context, fn func() error) func() error {
+// WrapErrorFunctionWithCallback 包装返回错误的函数并执行回调
+func (pr *PanicRecovery) WrapErrorFunctionWithCallback(component string, fn func() error, callback func()) func() error {
 	if fn == nil {
 		return func() error { return nil }
-	}
-
-	if ctx == nil {
-		ctx = context.Background()
 	}
 
 	if !pr.IsEnabled() {
@@ -444,7 +415,7 @@ func (pr *PanicRecovery) WrapErrorFunctionWithContext(component string, ctx cont
 	}
 
 	return func() error {
-		defer pr.RecoverWithContext(component, ctx)
+		defer pr.RecoverWithCallback(component, callback)
 		return fn()
 	}
 }

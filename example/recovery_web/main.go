@@ -87,10 +87,10 @@ func paymentHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	// 使用SafeGoWithContext
+	// 使用SafeGo启动协程，内部处理context管理
 	done := make(chan bool, 1)
 
-	recovery.GlobalPanicRecovery.SafeGoWithContext("payment-api", ctx, func() {
+	recovery.GlobalPanicRecovery.SafeGo("payment-api", func() {
 		// 模拟支付处理
 		if paymentID == "failed_payment" {
 			panic("支付失败")
@@ -127,6 +127,96 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status": "healthy",
 		"time":   time.Now().Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// WrapFunction功能展示处理器
+func wrapFunctionHandler(w http.ResponseWriter, r *http.Request) {
+	// 使用WrapFunction包装函数
+	safeFunc := recovery.GlobalPanicRecovery.WrapFunction("wrap-api", func() {
+		log.Println("执行包装的API函数...")
+		time.Sleep(100 * time.Millisecond)
+
+		// 模拟偶尔的panic
+		if time.Now().Second()%2 == 0 {
+			panic("包装函数中的随机panic")
+		}
+
+		log.Println("包装的API函数执行完成")
+	})
+
+	// 使用WrapErrorFunction包装返回错误的函数
+	safeErrorFunc := recovery.GlobalPanicRecovery.WrapErrorFunction("wrap-error-api", func() error {
+		log.Println("执行包装的错误API函数...")
+		time.Sleep(100 * time.Millisecond)
+
+		// 模拟偶尔的panic
+		if time.Now().Second()%3 == 0 {
+			panic("包装错误函数中的随机panic")
+		}
+
+		return nil
+	})
+
+	// 执行包装的函数
+	go safeFunc()
+
+	go func() {
+		if err := safeErrorFunc(); err != nil {
+			log.Printf("包装错误函数返回错误: %v", err)
+		}
+	}()
+
+	response := map[string]interface{}{
+		"message": "WrapFunction功能演示已启动",
+		"time":    time.Now().Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// 回调功能展示处理器
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	// 使用SafeGoWithCallback展示回调功能
+	recovery.GlobalPanicRecovery.SafeGoWithCallback("callback-api", func() {
+		log.Println("执行带回调的API函数...")
+		time.Sleep(200 * time.Millisecond)
+
+		// 模拟偶尔的panic
+		if time.Now().Second()%2 == 0 {
+			panic("回调函数中的随机panic")
+		}
+
+		log.Println("带回调的API函数执行完成")
+	}, func() {
+		log.Println("回调函数执行 - 无论是否发生panic都会执行")
+	})
+
+	// 使用WrapFunctionWithCallback展示包装回调功能
+	safeFuncWithCallback := recovery.GlobalPanicRecovery.WrapFunctionWithCallback("wrap-callback-api", func() {
+		log.Println("执行包装的带回调API函数...")
+		time.Sleep(200 * time.Millisecond)
+
+		// 模拟偶尔的panic
+		if time.Now().Second()%3 == 0 {
+			panic("包装回调函数中的随机panic")
+		}
+
+		log.Println("包装的带回调API函数执行完成")
+	}, func() {
+		log.Println("包装回调函数执行 - 无论是否发生panic都会执行")
+	})
+
+	// 执行包装的函数
+	go safeFuncWithCallback()
+
+	response := map[string]interface{}{
+		"message": "回调功能演示已启动",
+		"time":    time.Now().Format(time.RFC3339),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -182,6 +272,17 @@ func startWebServer() {
 		handler:  paymentHandler,
 	})
 
+	// 添加更多API端点展示不同功能
+	http.Handle("/api/wrap", &SafeHandler{
+		recovery: recovery.GlobalPanicRecovery,
+		handler:  wrapFunctionHandler,
+	})
+
+	http.Handle("/api/callback", &SafeHandler{
+		recovery: recovery.GlobalPanicRecovery,
+		handler:  callbackHandler,
+	})
+
 	http.HandleFunc("/health", healthHandler)
 
 	// 启动后台任务
@@ -189,6 +290,13 @@ func startWebServer() {
 
 	// 启动服务器
 	log.Println("🌐 启动Web服务器在端口 8080...")
+	log.Println("📋 可用的API端点:")
+	log.Println("  GET /api/user?id=xxx - 用户信息")
+	log.Println("  GET /api/order?id=xxx - 订单信息")
+	log.Println("  GET /api/payment?id=xxx - 支付信息")
+	log.Println("  GET /api/wrap - 展示WrapFunction功能")
+	log.Println("  GET /api/callback - 展示回调功能")
+	log.Println("  GET /health - 健康检查")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -54,11 +55,11 @@ func (s *UserService) GetUserInfo(userID string) {
 }
 
 func (s *UserService) GetUserInfoWithContext(userID string) {
-	// 使用SafeGoWithContext启动协程，支持context管理
+	// 使用SafeGo启动协程，内部处理context管理
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	s.recovery.SafeGoWithContext("user-service-context", ctx, func() {
+	s.recovery.SafeGo("user-service-context", func() {
 		log.Printf("正在获取用户信息(带context): %s", userID)
 
 		// 检查context是否被取消
@@ -127,11 +128,11 @@ func NewPaymentService(recovery *recovery.PanicRecovery) *PaymentService {
 }
 
 func (s *PaymentService) ProcessPayment(paymentID string) {
-	// 使用SafeGoWithContext启动协程，内部启动子协程
+	// 使用SafeGo启动协程，内部处理context管理
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	s.recovery.SafeGoWithContext("payment-service", ctx, func() {
+	s.recovery.SafeGo("payment-service", func() {
 		log.Printf("正在处理支付: %s", paymentID)
 
 		// 启动子协程处理支付验证
@@ -223,12 +224,66 @@ func main() {
 	orderService.ProcessOrder("invalid_order")
 	paymentService.ProcessPayment("failed_payment")
 
-	// 5. 保持程序运行
+	// 5. 展示WrapFunction功能
+	log.Println("🔧 展示WrapFunction功能...")
+	demonstrateWrapFunctions()
+
+	// 6. 保持程序运行
 	log.Println("✅ 应用程序启动完成，等待业务请求...")
 	log.Println("💡 观察日志输出，可以看到panic被框架捕获而不会导致程序退出")
 
 	// 保持程序运行
 	select {}
+}
+
+// 展示WrapFunction功能
+func demonstrateWrapFunctions() {
+	// 使用WrapFunction包装普通函数
+	safeFunc := recovery.GlobalPanicRecovery.WrapFunction("wrapped-function", func() {
+		log.Println("执行包装的函数...")
+		time.Sleep(100 * time.Millisecond)
+		log.Println("包装的函数执行完成")
+	})
+
+	// 使用WrapFunctionWithCallback包装带回调的函数
+	safeFuncWithCallback := recovery.GlobalPanicRecovery.WrapFunctionWithCallback("wrapped-function-with-callback", func() {
+		log.Println("执行带回调的包装函数...")
+		time.Sleep(100 * time.Millisecond)
+		panic("包装函数中的panic")
+	}, func() {
+		log.Println("回调函数执行")
+	})
+
+	// 使用WrapErrorFunction包装返回错误的函数
+	safeErrorFunc := recovery.GlobalPanicRecovery.WrapErrorFunction("wrapped-error-function", func() error {
+		log.Println("执行包装的错误函数...")
+		time.Sleep(100 * time.Millisecond)
+		panic("包装错误函数中的panic")
+		// return nil // 这行代码永远不会执行，因为上面会panic
+	})
+
+	// 使用WrapErrorFunctionWithCallback包装带回调的错误函数
+	safeErrorFuncWithCallback := recovery.GlobalPanicRecovery.WrapErrorFunctionWithCallback("wrapped-error-function-with-callback", func() error {
+		log.Println("执行带回调的包装错误函数...")
+		time.Sleep(100 * time.Millisecond)
+		return fmt.Errorf("模拟错误")
+	}, func() {
+		log.Println("错误函数回调执行")
+	})
+
+	// 执行包装的函数
+	go safeFunc()
+	go safeFuncWithCallback()
+	go func() {
+		if err := safeErrorFunc(); err != nil {
+			log.Printf("包装错误函数返回错误: %v", err)
+		}
+	}()
+	go func() {
+		if err := safeErrorFuncWithCallback(); err != nil {
+			log.Printf("带回调的包装错误函数返回错误: %v", err)
+		}
+	}()
 }
 
 // 初始化全局recovery机制
