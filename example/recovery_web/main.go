@@ -90,7 +90,7 @@ func paymentHandler(w http.ResponseWriter, r *http.Request) {
 	// 使用SafeGoWithContext
 	done := make(chan bool, 1)
 
-	recovery.GlobalPanicRecovery.SafeGoWithContext("payment-api", ctx, func(ctx context.Context) {
+	recovery.GlobalPanicRecovery.SafeGoWithContext("payment-api", ctx, func() {
 		// 模拟支付处理
 		if paymentID == "failed_payment" {
 			panic("支付失败")
@@ -140,15 +140,12 @@ func startBackgroundTasks() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				recovery.GlobalPanicRecovery.SafeGo("background-cleanup", func() {
-					log.Println("执行后台清理任务...")
-					time.Sleep(1 * time.Second)
-					log.Println("后台清理任务完成")
-				})
-			}
+		for range ticker.C {
+			recovery.GlobalPanicRecovery.SafeGo("background-cleanup", func() {
+				log.Println("执行后台清理任务...")
+				time.Sleep(1 * time.Second)
+				log.Println("后台清理任务完成")
+			})
 		}
 	}()
 
@@ -157,15 +154,12 @@ func startBackgroundTasks() {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				recovery.GlobalPanicRecovery.SafeGo("data-sync", func() {
-					log.Println("执行数据同步任务...")
-					time.Sleep(2 * time.Second)
-					log.Println("数据同步任务完成")
-				})
-			}
+		for range ticker.C {
+			recovery.GlobalPanicRecovery.SafeGo("data-sync", func() {
+				log.Println("执行数据同步任务...")
+				time.Sleep(2 * time.Second)
+				log.Println("数据同步任务完成")
+			})
 		}
 	}()
 }

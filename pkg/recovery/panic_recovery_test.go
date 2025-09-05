@@ -89,7 +89,7 @@ func TestPanicRecoveryWithContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "test_key", "test_value")
 
 	// 测试SafeGoWithContext
-	recovery.SafeGoWithContext("test-context", ctx, func(ctx context.Context) {
+	recovery.SafeGoWithContext("test-context", ctx, func() {
 		panic("测试上下文panic")
 	})
 
@@ -264,7 +264,7 @@ func TestNilContext(t *testing.T) {
 	recovery := NewPanicRecovery(nil)
 
 	// 测试SafeGoWithContext with nil context
-	recovery.SafeGoWithContext("nil-context", nil, func(ctx context.Context) {
+	recovery.SafeGoWithContext("nil-context", nil, func() {
 		panic("nil上下文测试")
 	})
 
@@ -425,7 +425,7 @@ func TestGoroutineTimeout(t *testing.T) {
 	completed := make(chan bool, 1)
 
 	// 启动一个长时间运行的协程
-	recovery.SafeGoWithContext("timeout-test", ctx, func(ctx context.Context) {
+	recovery.SafeGoWithContext("timeout-test", ctx, func() {
 		// 模拟长时间运行的任务
 		select {
 		case <-time.After(200 * time.Millisecond):
@@ -459,7 +459,7 @@ func TestGoroutineContextCancellation(t *testing.T) {
 	completed := make(chan bool, 1)
 
 	// 启动协程
-	recovery.SafeGoWithContext("cancellation-test", ctx, func(ctx context.Context) {
+	recovery.SafeGoWithContext("cancellation-test", ctx, func() {
 		// 模拟长时间运行的任务
 		select {
 		case <-time.After(200 * time.Millisecond):
@@ -498,7 +498,7 @@ func TestGoroutineWithSubGoroutines(t *testing.T) {
 	mainGoroutineCompleted := make(chan bool, 1)
 
 	// 启动主协程，内部启动子协程
-	recovery.SafeGoWithContext("sub-goroutine-test", ctx, func(ctx context.Context) {
+	recovery.SafeGoWithContext("sub-goroutine-test", ctx, func() {
 		// 启动子协程
 		go func() {
 			select {
@@ -554,7 +554,7 @@ func TestGoroutinePanicWithContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "panic_test_key", "panic_test_value")
 
 	// 启动会panic的协程
-	recovery.SafeGoWithContext("panic-context-test", ctx, func(ctx context.Context) {
+	recovery.SafeGoWithContext("panic-context-test", ctx, func() {
 		panic("带context的panic测试")
 	})
 

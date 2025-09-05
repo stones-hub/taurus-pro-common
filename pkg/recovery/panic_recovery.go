@@ -13,20 +13,43 @@ import (
 
 // PanicInfo panic信息结构
 type PanicInfo struct {
-	Component   string
-	Error       interface{}
-	Stack       string
-	Timestamp   time.Time
-	GoroutineID string
-	Context     context.Context
+	Component   string          // 组件名称
+	Error       interface{}     // 错误信息
+	Stack       string          // 堆栈信息
+	Timestamp   time.Time       // 时间戳
+	GoroutineID string          // goroutine ID
+	Context     context.Context // 上下文
 }
 
+// ---------------------------- PanicHandler实现 --------------------------------
 // PanicHandler panic处理器接口
 type PanicHandler interface {
 	// HandlePanic 处理panic， 如果函数开了协程，则需要自己处理协程的
 	HandlePanic(info *PanicInfo) error
 }
 
+// 统一的panic处理器
+type UnifiedPanicHandler struct{}
+
+// HandlePanic 统一的panic处理逻辑
+func (h *UnifiedPanicHandler) HandlePanic(info *PanicInfo) error {
+	// 统一的panic处理逻辑
+	// 可以根据需要添加告警、监控、重试等逻辑
+	log.Printf("🔧 [UNIFIED_PANIC] Component: %s, Error: %v, Time: %s",
+		info.Component, info.Error, info.Timestamp.Format("2006-01-02 15:04:05"))
+
+	// 这里可以添加：
+	// 1. 发送告警通知
+	// 2. 记录到监控系统
+	// 3. 触发自动重试
+	// 4. 记录到专门的错误日志文件
+	// 5. 发送到错误追踪系统
+	// 6. 根据上下文信息进行特定处理
+
+	return nil
+}
+
+// ---------------------------- PanicLogger实现 --------------------------------
 // PanicLogger panic日志记录器接口
 type PanicLogger interface {
 	LogPanic(info *PanicInfo) error
@@ -43,20 +66,12 @@ func (l *DefaultPanicLogger) LogPanic(info *PanicInfo) error {
 	return nil
 }
 
-// PanicRecovery 全局panic恢复器
-type PanicRecovery struct {
-	enabled  bool
-	handlers []PanicHandler
-	logger   PanicLogger
-	mu       sync.RWMutex
-	options  *RecoveryOptions
-}
-
+// ---------------------------- RecoveryOptions实现 --------------------------------
 // RecoveryOptions 恢复器配置选项
 type RecoveryOptions struct {
-	EnableStackTrace bool
-	MaxHandlers      int
-	HandlerTimeout   time.Duration
+	EnableStackTrace bool          // 是否启用堆栈跟踪
+	MaxHandlers      int           // 最大处理器数量
+	HandlerTimeout   time.Duration // 处理器超时时间
 }
 
 // DefaultRecoveryOptions 默认配置
@@ -66,6 +81,15 @@ func DefaultRecoveryOptions() *RecoveryOptions {
 		MaxHandlers:      100,
 		HandlerTimeout:   5 * time.Second,
 	}
+}
+
+// PanicRecovery 全局panic恢复器
+type PanicRecovery struct {
+	enabled  bool             // 是否启用
+	handlers []PanicHandler   // 多个处理器
+	logger   PanicLogger      // 日志记录器
+	mu       sync.RWMutex     // 保护 enabled、handlers、logger、options 的并发访问
+	options  *RecoveryOptions // 恢复器配置选项
 }
 
 // NewPanicRecovery 创建新的panic恢复器
@@ -150,9 +174,30 @@ func (pr *PanicRecovery) SetLogger(logger PanicLogger) {
 	pr.logger = logger
 }
 
+// 获取goroutine ID的辅助函数
+func getGoroutineID() string {
+	// 使用runtime.Stack()来获取goroutine ID
+	buf := make([]byte, 64)
+	n := runtime.Stack(buf, false)
+
+	// 解析堆栈信息来提取goroutine ID
+	// 格式类似: "goroutine 123 [running]:"
+	stack := string(buf[:n])
+
+	// 使用正则表达式提取goroutine ID
+	re := regexp.MustCompile(`goroutine (\d+)`)
+	matches := re.FindStringSubmatch(stack)
+	if len(matches) >= 2 {
+		return matches[1]
+	}
+
+	// 如果无法解析，返回默认值
+	return "unknown"
+}
+
 // handlePanic 统一的panic处理逻辑
 func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx context.Context) {
-	// 构建panic信息
+	// 1. 构建panic信息
 	info := &PanicInfo{
 		Component:   component,
 		Error:       err,
@@ -165,14 +210,14 @@ func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx cont
 		info.Stack = string(debug.Stack())
 	}
 
-	// 记录日志
+	// 2. 记录panic日志
 	if pr.logger != nil {
 		if logErr := pr.logger.LogPanic(info); logErr != nil {
 			log.Printf("❌ 记录panic日志失败: %v", logErr)
 		}
 	}
 
-	// 调用所有处理器
+	// 3. 协程调用所有处理器
 	pr.mu.RLock()
 	handlers := make([]PanicHandler, len(pr.handlers))
 	copy(handlers, pr.handlers)
@@ -188,53 +233,23 @@ func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx cont
 		wg.Add(1)
 		go func(h PanicHandler) {
 			defer wg.Done()
-			pr.executeHandler(h, info)
+
+			// 保护handler执行，防止handler中的panic影响其他handler
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("❌ 处理器panic: %v", r)
+				}
+			}()
+
+			// 直接调用处理器, 建议考虑HandlePanic的实现，需要有超时控制
+			if err := h.HandlePanic(info); err != nil {
+				log.Printf("❌ 处理器执行失败: %v", err)
+			}
 		}(handler)
 	}
 
 	// 等待所有处理器完成
 	wg.Wait()
-}
-
-// executeHandler 执行单个处理器，带超时控制 （协程函数）
-func (pr *PanicRecovery) executeHandler(handler PanicHandler, info *PanicInfo) {
-	// 使用context来控制超时，避免goroutine泄漏
-	ctx, cancel := context.WithTimeout(context.Background(), pr.options.HandlerTimeout)
-	defer cancel()
-
-	// 使用带缓冲的channel避免goroutine泄漏
-	done := make(chan error, 1)
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				select {
-				case done <- fmt.Errorf("处理器panic: %v", r):
-				case <-ctx.Done():
-					// context已取消，不再发送结果
-				}
-			}
-		}()
-
-		// 直接调用处理器，不使用select，确保处理器总是被调用
-		result := handler.HandlePanic(info)
-
-		// 然后尝试发送结果，如果超时了就丢弃
-		select {
-		case done <- result:
-		case <-ctx.Done():
-			// context已取消，不再发送结果
-		}
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			log.Printf("❌ 处理器执行失败: %v", err)
-		}
-	case <-ctx.Done():
-		log.Printf("⚠️ 处理器执行超时: %T", handler)
-	}
 }
 
 // Recover 恢复panic
@@ -302,7 +317,7 @@ func (pr *PanicRecovery) SafeGo(component string, fn func()) {
 }
 
 // SafeGoWithContext 安全地启动goroutine并传递上下文
-func (pr *PanicRecovery) SafeGoWithContext(component string, ctx context.Context, fn func(ctx context.Context)) {
+func (pr *PanicRecovery) SafeGoWithContext(component string, ctx context.Context, fn func()) {
 	if fn == nil {
 		log.Printf("⚠️ 尝试启动空的goroutine函数")
 		return
@@ -313,13 +328,14 @@ func (pr *PanicRecovery) SafeGoWithContext(component string, ctx context.Context
 	}
 
 	if !pr.IsEnabled() {
-		go fn(ctx)
+		go fn()
 		return
 	}
 
 	go func() {
+		// 使用传入的上下文进行panic恢复，业务逻辑由fn内部自己管理上下文
 		defer pr.RecoverWithContext(component, ctx)
-		fn(ctx)
+		fn()
 	}()
 }
 
@@ -432,27 +448,6 @@ func (pr *PanicRecovery) WrapErrorFunctionWithContext(component string, ctx cont
 // 全局panic恢复器实例
 var GlobalPanicRecovery = NewPanicRecovery(nil)
 
-// 统一的panic处理器
-type UnifiedPanicHandler struct{}
-
-// HandlePanic 统一的panic处理逻辑
-func (h *UnifiedPanicHandler) HandlePanic(info *PanicInfo) error {
-	// 统一的panic处理逻辑
-	// 可以根据需要添加告警、监控、重试等逻辑
-	log.Printf("🔧 [UNIFIED_PANIC] Component: %s, Error: %v, Time: %s",
-		info.Component, info.Error, info.Timestamp.Format("2006-01-02 15:04:05"))
-
-	// 这里可以添加：
-	// 1. 发送告警通知
-	// 2. 记录到监控系统
-	// 3. 触发自动重试
-	// 4. 记录到专门的错误日志文件
-	// 5. 发送到错误追踪系统
-	// 6. 根据上下文信息进行特定处理
-
-	return nil
-}
-
 // 框架初始化函数
 func InitFrameworkPanicRecovery() {
 	// 添加统一的panic处理器
@@ -464,27 +459,6 @@ func InitFrameworkPanicRecovery() {
 	GlobalPanicRecovery.Enable()
 
 	log.Printf("✅ 框架panic恢复机制初始化完成")
-}
-
-// 获取goroutine ID的辅助函数
-func getGoroutineID() string {
-	// 使用runtime.Stack()来获取goroutine ID
-	buf := make([]byte, 64)
-	n := runtime.Stack(buf, false)
-
-	// 解析堆栈信息来提取goroutine ID
-	// 格式类似: "goroutine 123 [running]:"
-	stack := string(buf[:n])
-
-	// 使用正则表达式提取goroutine ID
-	re := regexp.MustCompile(`goroutine (\d+)`)
-	matches := re.FindStringSubmatch(stack)
-	if len(matches) >= 2 {
-		return matches[1]
-	}
-
-	// 如果无法解析，返回默认值
-	return "unknown"
 }
 
 // 初始化全局panic处理器

@@ -29,7 +29,7 @@ func Go(component string, fn func()) {
 }
 
 // SafeGoWithContext 安全地启动goroutine并传递上下文
-func GoWithContext(component string, ctx context.Context, fn func(ctx context.Context)) {
+func GoWithContext(component string, ctx context.Context, fn func()) {
 	recovery.GlobalPanicRecovery.SafeGoWithContext(component, ctx, fn)
 }
 

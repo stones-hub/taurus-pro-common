@@ -58,7 +58,7 @@ func (s *UserService) GetUserInfoWithContext(userID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	s.recovery.SafeGoWithContext("user-service-context", ctx, func(ctx context.Context) {
+	s.recovery.SafeGoWithContext("user-service-context", ctx, func() {
 		log.Printf("正在获取用户信息(带context): %s", userID)
 
 		// 检查context是否被取消
@@ -131,7 +131,7 @@ func (s *PaymentService) ProcessPayment(paymentID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	s.recovery.SafeGoWithContext("payment-service", ctx, func(ctx context.Context) {
+	s.recovery.SafeGoWithContext("payment-service", ctx, func() {
 		log.Printf("正在处理支付: %s", paymentID)
 
 		// 启动子协程处理支付验证
@@ -175,23 +175,20 @@ func (s *ScheduledTask) StartCleanupTask() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			s.recovery.SafeGo("cleanup-task", func() {
-				log.Printf("开始执行清理任务")
+	for range ticker.C {
+		s.recovery.SafeGo("cleanup-task", func() {
+			log.Printf("开始执行清理任务")
 
-				// 模拟清理逻辑
-				time.Sleep(1 * time.Second)
+			// 模拟清理逻辑
+			time.Sleep(1 * time.Second)
 
-				// 模拟偶尔出现的错误
-				if time.Now().Second()%30 == 0 {
-					panic("清理任务出错")
-				}
+			// 模拟偶尔出现的错误
+			if time.Now().Second()%30 == 0 {
+				panic("清理任务出错")
+			}
 
-				log.Printf("清理任务完成")
-			})
-		}
+			log.Printf("清理任务完成")
+		})
 	}
 }
 
