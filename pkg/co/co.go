@@ -1,6 +1,9 @@
 package co
 
 import (
+	"context"
+	"time"
+
 	"github.com/stones-hub/taurus-pro-common/pkg/recovery"
 )
 
@@ -44,4 +47,63 @@ func WrapErrorFunction(component string, fn func() error) func() error {
 // WrapErrorFunctionWithCallback 包装返回错误的函数并执行回调, 并保证函数中panic会被恢复(不是goroutine中)
 func WrapErrorFunctionWithCallback(component string, fn func() error, callback func()) func() error {
 	return recovery.GlobalPanicRecovery.WrapErrorFunctionWithCallback(component, fn, callback)
+}
+
+// GoWithTimeout 同步版本，带超时控制函数
+func GoWithTimeout(component string, timeout time.Duration, fn func(ctx context.Context)) {
+
+	// 创建协程执行完毕的channel
+	done := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	recovery.GlobalPanicRecovery.SafeGo(component, func() {
+		fn(ctx) // 注意业务逻辑中需要监听ctx来判断是否超时后结束
+		close(done)
+	})
+
+	select {
+	case <-done:
+		// 函数正常完成
+		return
+	case <-ctx.Done():
+		// 超时
+		return
+	}
+}
+
+// AsyncGoWithTimeout 异步版本，带超时控制函数
+func AsyncGoWithTimeout(component string, timeout time.Duration, fn func(ctx context.Context)) {
+	recovery.GlobalPanicRecovery.SafeGo(component, func() {
+		GoWithTimeout(component, timeout, fn)
+	})
+}
+
+// GoWithTimeoutCallback 同步版本，带回调的超时控制函数
+func GoWithTimeoutCallback(component string, timeout time.Duration, fn func(ctx context.Context), callback func()) {
+	// 创建协程执行完毕的channel
+	done := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	recovery.GlobalPanicRecovery.SafeGoWithCallback(component, func() {
+		fn(ctx) // 注意业务逻辑中需要监听ctx来判断是否超时后结束
+		close(done)
+	}, callback) // callback 无论是否panic都会执行
+
+	select {
+	case <-done:
+		// 函数正常完成
+		return
+	case <-ctx.Done():
+		// 超时
+		return
+	}
+}
+
+// AsyncGoWithTimeoutCallback 异步版本，带回调的超时控制函数
+func AsyncGoWithTimeoutCallback(component string, timeout time.Duration, fn func(ctx context.Context), callback func()) {
+	recovery.GlobalPanicRecovery.SafeGoWithCallback(component, func() {
+		GoWithTimeoutCallback(component, timeout, fn, callback)
+	}, callback)
 }
