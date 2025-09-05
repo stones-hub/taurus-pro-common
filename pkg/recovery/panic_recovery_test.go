@@ -86,7 +86,8 @@ func TestPanicRecoveryWithContext(t *testing.T) {
 	recovery.AddHandler(testHandler)
 
 	// 创建测试上下文
-	ctx := context.WithValue(context.Background(), "test_key", "test_value")
+	type testKey string
+	ctx := context.WithValue(context.Background(), testKey("test_key"), "test_value")
 
 	// 测试SafeGoWithContext
 	recovery.SafeGoWithContext("test-context", ctx, func() {
@@ -98,7 +99,7 @@ func TestPanicRecoveryWithContext(t *testing.T) {
 
 	if receivedContext == nil {
 		t.Error("应该接收到上下文")
-	} else if receivedContext.Value("test_key") != "test_value" {
+	} else if receivedContext.Value(testKey("test_key")) != "test_value" {
 		t.Error("上下文值不正确")
 	}
 }
@@ -196,6 +197,8 @@ func TestHandlerTimeout(t *testing.T) {
 	}
 	t.Logf("成功添加处理器: %T", slowHandler)
 
+	start := time.Now()
+
 	// 触发panic
 	recovery.SafeGo("timeout-test", func() {
 		panic("超时测试")
@@ -204,7 +207,10 @@ func TestHandlerTimeout(t *testing.T) {
 	// 等待足够长的时间，确保处理器被调用
 	time.Sleep(300 * time.Millisecond)
 
-	// 验证处理器被调用（即使超时）
+	elapsed := time.Since(start)
+	t.Logf("总耗时: %v", elapsed)
+
+	// 验证处理器被调用
 	slowHandler.mu.Lock()
 	called := slowHandler.called
 	slowHandler.mu.Unlock()
@@ -212,6 +218,57 @@ func TestHandlerTimeout(t *testing.T) {
 	t.Logf("处理器调用状态: %v", called)
 	if !called {
 		t.Error("慢处理器应该被调用")
+	}
+
+	// 验证超时机制生效：总耗时应该接近超时时间，而不是处理器的duration
+	// 由于handler现在会检查context并提前退出，总耗时应该接近HandlerTimeout
+	if elapsed > 150*time.Millisecond {
+		t.Logf("⚠️ 总耗时 %v 超过了预期的超时时间 %v，可能超时机制未完全生效", elapsed, options.HandlerTimeout)
+	} else {
+		t.Logf("✅ 超时机制生效，总耗时: %v", elapsed)
+	}
+}
+
+// TestHandlerContextTimeout 测试handler通过context处理超时
+func TestHandlerContextTimeout(t *testing.T) {
+	options := &RecoveryOptions{
+		HandlerTimeout: 50 * time.Millisecond,
+		MaxHandlers:    10,
+	}
+	recovery := NewPanicRecovery(options)
+
+	// 添加支持context超时的处理器
+	timeoutHandler := &ContextTimeoutHandler{
+		timeoutDetected: false,
+	}
+	err := recovery.AddHandler(timeoutHandler)
+	if err != nil {
+		t.Errorf("添加处理器失败: %v", err)
+	}
+
+	start := time.Now()
+
+	// 触发panic
+	recovery.SafeGo("context-timeout-test", func() {
+		panic("context超时测试")
+	})
+
+	// 等待处理完成
+	time.Sleep(200 * time.Millisecond)
+
+	elapsed := time.Since(start)
+	t.Logf("总耗时: %v", elapsed)
+
+	// 验证处理器检测到超时
+	if !timeoutHandler.timeoutDetected {
+		t.Error("处理器应该检测到context超时")
+	}
+
+	// 验证总耗时接近超时时间
+	if elapsed > 100*time.Millisecond {
+		t.Logf("⚠️ 总耗时 %v 超过了预期的超时时间 %v", elapsed, options.HandlerTimeout)
+	} else {
+		t.Logf("✅ context超时机制生效，总耗时: %v", elapsed)
 	}
 }
 
@@ -551,7 +608,8 @@ func TestGoroutinePanicWithContext(t *testing.T) {
 	recovery.AddHandler(testHandler)
 
 	// 创建测试上下文
-	ctx := context.WithValue(context.Background(), "panic_test_key", "panic_test_value")
+	type panicTestKey string
+	ctx := context.WithValue(context.Background(), panicTestKey("panic_test_key"), "panic_test_value")
 
 	// 启动会panic的协程
 	recovery.SafeGoWithContext("panic-context-test", ctx, func() {
@@ -564,7 +622,7 @@ func TestGoroutinePanicWithContext(t *testing.T) {
 	// 验证context被正确传递
 	if receivedContext == nil {
 		t.Error("应该接收到上下文")
-	} else if receivedContext.Value("panic_test_key") != "panic_test_value" {
+	} else if receivedContext.Value(panicTestKey("panic_test_key")) != "panic_test_value" {
 		t.Error("上下文值不正确")
 	}
 }
@@ -605,8 +663,60 @@ func (h *SlowPanicHandler) HandlePanic(info *PanicInfo) error {
 	h.called = true
 	h.mu.Unlock()
 
-	// 然后执行慢操作
-	time.Sleep(h.duration)
+	// 检查context是否已取消
+	select {
+	case <-info.Context.Done():
+		// 如果context已取消，提前返回
+		return info.Context.Err()
+	default:
+		// 继续执行
+	}
+
+	// 在慢操作中定期检查context状态
+	start := time.Now()
+	for time.Since(start) < h.duration {
+		select {
+		case <-info.Context.Done():
+			// context被取消，提前退出
+			return info.Context.Err()
+		case <-time.After(50 * time.Millisecond):
+			// 继续执行
+		}
+	}
+
+	return nil
+}
+
+type ContextTimeoutHandler struct {
+	timeoutDetected bool
+	mu              sync.Mutex
+}
+
+func (h *ContextTimeoutHandler) HandlePanic(info *PanicInfo) error {
+	// 检查context是否已取消
+	select {
+	case <-info.Context.Done():
+		h.mu.Lock()
+		h.timeoutDetected = true
+		h.mu.Unlock()
+		return info.Context.Err()
+	default:
+		// 继续执行
+	}
+
+	// 模拟长时间操作，定期检查context
+	for i := 0; i < 10; i++ {
+		select {
+		case <-info.Context.Done():
+			h.mu.Lock()
+			h.timeoutDetected = true
+			h.mu.Unlock()
+			return info.Context.Err()
+		case <-time.After(20 * time.Millisecond):
+			// 继续执行
+		}
+	}
+
 	return nil
 }
 

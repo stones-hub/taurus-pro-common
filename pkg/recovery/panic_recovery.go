@@ -197,13 +197,17 @@ func getGoroutineID() string {
 
 // handlePanic 统一的panic处理逻辑
 func (pr *PanicRecovery) handlePanic(component string, err interface{}, ctx context.Context) {
+
+	hctx, cancel := context.WithTimeout(ctx, pr.options.HandlerTimeout)
+	defer cancel()
+
 	// 1. 构建panic信息
 	info := &PanicInfo{
 		Component:   component,
 		Error:       err,
 		Timestamp:   time.Now(),
 		GoroutineID: getGoroutineID(),
-		Context:     ctx,
+		Context:     hctx,
 	}
 
 	if pr.options.EnableStackTrace {
