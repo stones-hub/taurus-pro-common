@@ -17,8 +17,6 @@ func GetString(m map[string]interface{}, key string, defaultVal string) string {
 			return strconv.FormatFloat(reflect.ValueOf(v).Float(), 'f', -1, 64)
 		case bool:
 			return strconv.FormatBool(v)
-		default:
-			return strconv.FormatInt(reflect.ValueOf(v).Int(), 10)
 		}
 	}
 	return defaultVal
