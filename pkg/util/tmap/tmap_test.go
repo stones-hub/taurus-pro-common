@@ -2,6 +2,7 @@ package tmap
 
 import (
 	"testing"
+	"time"
 )
 
 func TestGetString(t *testing.T) {
@@ -277,5 +278,140 @@ func TestExists(t *testing.T) {
 	// 测试 nil map
 	if Exists(nil, "key") {
 		t.Error("Expected key to not exist in nil map")
+	}
+}
+
+func TestGetTime(t *testing.T) {
+	now := time.Now()
+	m := map[string]interface{}{
+		"time":          now,
+		"timestamp":     now.Unix(),
+		"timestamp_str": "1640995200", // 2022-01-01 00:00:00
+		"datetime_str":  "2022-01-01 12:30:45",
+		"date_str":      "2022-01-01",
+		"rfc3339_str":   "2022-01-01T12:30:45Z",
+	}
+
+	// 测试 time.Time 类型
+	if result := GetTime(m, "time", time.Time{}); !result.Equal(now) {
+		t.Errorf("Expected %v, got %v", now, result)
+	}
+
+	// 测试时间戳转换
+	expectedTime := time.Unix(1640995200, 0)
+	if result := GetTime(m, "timestamp_str", time.Time{}); !result.Equal(expectedTime) {
+		t.Errorf("Expected %v, got %v", expectedTime, result)
+	}
+
+	// 测试日期时间字符串转换
+	expectedDateTime, _ := time.Parse("2006-01-02 15:04:05", "2022-01-01 12:30:45")
+	if result := GetTime(m, "datetime_str", time.Time{}); !result.Equal(expectedDateTime) {
+		t.Errorf("Expected %v, got %v", expectedDateTime, result)
+	}
+
+	// 测试默认值
+	defaultTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if result := GetTime(m, "nonexistent", defaultTime); !result.Equal(defaultTime) {
+		t.Errorf("Expected %v, got %v", defaultTime, result)
+	}
+}
+
+func TestGetTimestamp(t *testing.T) {
+	now := time.Now()
+	m := map[string]interface{}{
+		"time":          now,
+		"timestamp":     int64(1640995200),
+		"timestamp_str": "1640995200",
+		"datetime_str":  "2022-01-01 12:30:45",
+	}
+
+	// 测试 time.Time 类型
+	if result := GetTimestamp(m, "time", 0); result != now.Unix() {
+		t.Errorf("Expected %d, got %d", now.Unix(), result)
+	}
+
+	// 测试 int64 类型
+	if result := GetTimestamp(m, "timestamp", 0); result != 1640995200 {
+		t.Errorf("Expected 1640995200, got %d", result)
+	}
+
+	// 测试字符串时间戳
+	if result := GetTimestamp(m, "timestamp_str", 0); result != 1640995200 {
+		t.Errorf("Expected 1640995200, got %d", result)
+	}
+
+	// 测试默认值
+	if result := GetTimestamp(m, "nonexistent", 999); result != 999 {
+		t.Errorf("Expected 999, got %d", result)
+	}
+}
+
+func TestGetTimestampMilli(t *testing.T) {
+	now := time.Now()
+	m := map[string]interface{}{
+		"time":            now,
+		"timestamp_sec":   int64(1640995200),    // 秒级时间戳
+		"timestamp_milli": int64(1640995200000), // 毫秒级时间戳
+		"timestamp_str":   "1640995200",
+	}
+
+	// 测试 time.Time 类型
+	if result := GetTimestampMilli(m, "time", 0); result != now.UnixMilli() {
+		t.Errorf("Expected %d, got %d", now.UnixMilli(), result)
+	}
+
+	// 测试秒级时间戳转换为毫秒
+	if result := GetTimestampMilli(m, "timestamp_sec", 0); result != 1640995200000 {
+		t.Errorf("Expected 1640995200000, got %d", result)
+	}
+
+	// 测试毫秒级时间戳
+	if result := GetTimestampMilli(m, "timestamp_milli", 0); result != 1640995200000 {
+		t.Errorf("Expected 1640995200000, got %d", result)
+	}
+
+	// 测试字符串时间戳
+	if result := GetTimestampMilli(m, "timestamp_str", 0); result != 1640995200000 {
+		t.Errorf("Expected 1640995200000, got %d", result)
+	}
+
+	// 测试默认值
+	if result := GetTimestampMilli(m, "nonexistent", 999); result != 999 {
+		t.Errorf("Expected 999, got %d", result)
+	}
+}
+
+func TestGetDateTime(t *testing.T) {
+	now := time.Now()
+	m := map[string]interface{}{
+		"time":         now,
+		"timestamp":    int64(1640995200), // 2022-01-01 00:00:00
+		"datetime_str": "2022-01-01 12:30:45",
+		"date_str":     "2022-01-01",
+		"rfc3339_str":  "2022-01-01T12:30:45Z",
+	}
+
+	// 测试 time.Time 类型
+	expected := now.Format("2006-01-02 15:04:05")
+	if result := GetDateTime(m, "time", ""); result != expected {
+		t.Errorf("Expected %s, got %s", expected, result)
+	}
+
+	// 测试时间戳转换
+	expectedTime := time.Unix(1640995200, 0)
+	expected = expectedTime.Format("2006-01-02 15:04:05")
+	if result := GetDateTime(m, "timestamp", ""); result != expected {
+		t.Errorf("Expected %s, got %s", expected, result)
+	}
+
+	// 测试日期时间字符串
+	expected = "2022-01-01 12:30:45"
+	if result := GetDateTime(m, "datetime_str", ""); result != expected {
+		t.Errorf("Expected %s, got %s", expected, result)
+	}
+
+	// 测试默认值
+	if result := GetDateTime(m, "nonexistent", "default"); result != "default" {
+		t.Errorf("Expected 'default', got '%s'", result)
 	}
 }

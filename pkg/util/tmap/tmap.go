@@ -3,6 +3,7 @@ package tmap
 import (
 	"reflect"
 	"strconv"
+	"time"
 )
 
 // GetString 安全地获取字符串值
@@ -126,6 +127,150 @@ func Set(m map[string]interface{}, key string, value interface{}) {
 		return
 	}
 	m[key] = value
+}
+
+// GetTime 安全地获取时间值
+func GetTime(m map[string]interface{}, key string, defaultVal time.Time) time.Time {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case time.Time:
+			return v
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			// 时间戳转换（秒）
+			timestamp := reflect.ValueOf(v).Int()
+			return time.Unix(timestamp, 0)
+		case float32, float64:
+			// 时间戳转换（秒，支持小数）
+			timestamp := reflect.ValueOf(v).Float()
+			return time.Unix(int64(timestamp), 0)
+		case string:
+			// 尝试解析时间字符串
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				return t
+			}
+			if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+				return t
+			}
+			if t, err := time.Parse("2006-01-02", v); err == nil {
+				return t
+			}
+			// 尝试解析时间戳字符串
+			if timestamp, err := strconv.ParseInt(v, 10, 64); err == nil {
+				return time.Unix(timestamp, 0)
+			}
+		}
+	}
+	return defaultVal
+}
+
+// GetTimestamp 安全地获取时间戳（秒）
+func GetTimestamp(m map[string]interface{}, key string, defaultVal int64) int64 {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case time.Time:
+			return v.Unix()
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			return reflect.ValueOf(v).Int()
+		case float32, float64:
+			return int64(reflect.ValueOf(v).Float())
+		case string:
+			// 尝试解析时间字符串
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				return t.Unix()
+			}
+			if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+				return t.Unix()
+			}
+			if t, err := time.Parse("2006-01-02", v); err == nil {
+				return t.Unix()
+			}
+			// 尝试解析时间戳字符串
+			if timestamp, err := strconv.ParseInt(v, 10, 64); err == nil {
+				return timestamp
+			}
+		}
+	}
+	return defaultVal
+}
+
+// GetTimestampMilli 安全地获取毫秒时间戳
+func GetTimestampMilli(m map[string]interface{}, key string, defaultVal int64) int64 {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case time.Time:
+			return v.UnixMilli()
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			timestamp := reflect.ValueOf(v).Int()
+			// 如果时间戳小于 1e12，认为是秒级时间戳，需要转换为毫秒
+			if timestamp < 1e12 {
+				return timestamp * 1000
+			}
+			return timestamp
+		case float32, float64:
+			timestamp := int64(reflect.ValueOf(v).Float())
+			// 如果时间戳小于 1e12，认为是秒级时间戳，需要转换为毫秒
+			if timestamp < 1e12 {
+				return timestamp * 1000
+			}
+			return timestamp
+		case string:
+			// 尝试解析时间字符串
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				return t.UnixMilli()
+			}
+			if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+				return t.UnixMilli()
+			}
+			if t, err := time.Parse("2006-01-02", v); err == nil {
+				return t.UnixMilli()
+			}
+			// 尝试解析时间戳字符串
+			if timestamp, err := strconv.ParseInt(v, 10, 64); err == nil {
+				// 如果时间戳小于 1e12，认为是秒级时间戳，需要转换为毫秒
+				if timestamp < 1e12 {
+					return timestamp * 1000
+				}
+				return timestamp
+			}
+		}
+	}
+	return defaultVal
+}
+
+// GetDateTime 安全地获取日期时间字符串
+func GetDateTime(m map[string]interface{}, key string, defaultVal string) string {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case time.Time:
+			return v.Format("2006-01-02 15:04:05")
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			// 时间戳转换
+			timestamp := reflect.ValueOf(v).Int()
+			return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
+		case float32, float64:
+			// 时间戳转换
+			timestamp := reflect.ValueOf(v).Float()
+			return time.Unix(int64(timestamp), 0).Format("2006-01-02 15:04:05")
+		case string:
+			// 尝试解析时间字符串并重新格式化
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				return t.Format("2006-01-02 15:04:05")
+			}
+			if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+				return t.Format("2006-01-02 15:04:05")
+			}
+			if t, err := time.Parse("2006-01-02", v); err == nil {
+				return t.Format("2006-01-02 15:04:05")
+			}
+			// 尝试解析时间戳字符串
+			if timestamp, err := strconv.ParseInt(v, 10, 64); err == nil {
+				return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
+			}
+			// 如果无法解析，直接返回原字符串
+			return v
+		}
+	}
+	return defaultVal
 }
 
 // Exists 检查 map 中是否存在指定键
