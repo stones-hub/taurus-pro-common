@@ -12,8 +12,10 @@ func GetString(m map[string]interface{}, key string, defaultVal string) string {
 		switch v := val.(type) {
 		case string:
 			return v
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return strconv.FormatInt(reflect.ValueOf(v).Int(), 10)
+		case uint, uint8, uint16, uint32, uint64:
+			return strconv.FormatUint(reflect.ValueOf(v).Uint(), 10)
 		case float32, float64:
 			return strconv.FormatFloat(reflect.ValueOf(v).Float(), 'f', -1, 64)
 		case bool:
@@ -27,8 +29,10 @@ func GetString(m map[string]interface{}, key string, defaultVal string) string {
 func GetInt(m map[string]interface{}, key string, defaultVal int) int {
 	if val, ok := m[key]; ok {
 		switch v := val.(type) {
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return int(reflect.ValueOf(v).Int())
+		case uint, uint8, uint16, uint32, uint64:
+			return int(reflect.ValueOf(v).Uint())
 		case float32, float64:
 			return int(reflect.ValueOf(v).Float())
 		case string:
@@ -48,8 +52,10 @@ func GetInt(m map[string]interface{}, key string, defaultVal int) int {
 func GetInt64(m map[string]interface{}, key string, defaultVal int64) int64 {
 	if val, ok := m[key]; ok {
 		switch v := val.(type) {
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return reflect.ValueOf(v).Int()
+		case uint, uint8, uint16, uint32, uint64:
+			return int64(reflect.ValueOf(v).Uint())
 		case float32, float64:
 			return int64(reflect.ValueOf(v).Float())
 		case string:
@@ -71,8 +77,10 @@ func GetFloat64(m map[string]interface{}, key string, defaultVal float64) float6
 		switch v := val.(type) {
 		case float32, float64:
 			return reflect.ValueOf(v).Float()
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return float64(reflect.ValueOf(v).Int())
+		case uint, uint8, uint16, uint32, uint64:
+			return float64(reflect.ValueOf(v).Uint())
 		case string:
 			if f, err := strconv.ParseFloat(v, 64); err == nil {
 				return f
@@ -92,8 +100,10 @@ func GetBool(m map[string]interface{}, key string, defaultVal bool) bool {
 		switch v := val.(type) {
 		case bool:
 			return v
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return reflect.ValueOf(v).Int() != 0
+		case uint, uint8, uint16, uint32, uint64:
+			return reflect.ValueOf(v).Uint() != 0
 		case float32, float64:
 			return reflect.ValueOf(v).Float() != 0
 		case string:
@@ -135,9 +145,13 @@ func GetTime(m map[string]interface{}, key string, defaultVal time.Time) time.Ti
 		switch v := val.(type) {
 		case time.Time:
 			return v
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			// 时间戳转换（秒）
 			timestamp := reflect.ValueOf(v).Int()
+			return time.Unix(timestamp, 0)
+		case uint, uint8, uint16, uint32, uint64:
+			// 时间戳转换（秒）
+			timestamp := int64(reflect.ValueOf(v).Uint())
 			return time.Unix(timestamp, 0)
 		case float32, float64:
 			// 时间戳转换（秒，支持小数）
@@ -169,8 +183,10 @@ func GetTimestamp(m map[string]interface{}, key string, defaultVal int64) int64 
 		switch v := val.(type) {
 		case time.Time:
 			return v.Unix()
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			return reflect.ValueOf(v).Int()
+		case uint, uint8, uint16, uint32, uint64:
+			return int64(reflect.ValueOf(v).Uint())
 		case float32, float64:
 			return int64(reflect.ValueOf(v).Float())
 		case string:
@@ -199,8 +215,15 @@ func GetTimestampMilli(m map[string]interface{}, key string, defaultVal int64) i
 		switch v := val.(type) {
 		case time.Time:
 			return v.UnixMilli()
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			timestamp := reflect.ValueOf(v).Int()
+			// 如果时间戳小于 1e12，认为是秒级时间戳，需要转换为毫秒
+			if timestamp < 1e12 {
+				return timestamp * 1000
+			}
+			return timestamp
+		case uint, uint8, uint16, uint32, uint64:
+			timestamp := int64(reflect.ValueOf(v).Uint())
 			// 如果时间戳小于 1e12，认为是秒级时间戳，需要转换为毫秒
 			if timestamp < 1e12 {
 				return timestamp * 1000
@@ -243,9 +266,13 @@ func GetDateTime(m map[string]interface{}, key string, defaultVal string) string
 		switch v := val.(type) {
 		case time.Time:
 			return v.Format("2006-01-02 15:04:05")
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		case int, int8, int16, int32, int64:
 			// 时间戳转换
 			timestamp := reflect.ValueOf(v).Int()
+			return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
+		case uint, uint8, uint16, uint32, uint64:
+			// 时间戳转换
+			timestamp := int64(reflect.ValueOf(v).Uint())
 			return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
 		case float32, float64:
 			// 时间戳转换
