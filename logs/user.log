@@ -13,3 +13,15 @@
 [2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:323] [INFO] 用户 user123 注册成功
 [2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:324] [WARN] 用户 user456 登录失败次数过多
 [2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:338] [INFO] 新用户注册: map[age:25 created_at:2025-07-15 10:49:50.347899 +0800 CST m=+0.003589828 email:zhangsan@example.com user_id:u123 username:张三]
+[2025-09-22 16:45:59.941] [taurus-pro-common/bin/main.go:323] [INFO] 用户 user123 注册成功
+[2025-09-22 16:45:59.941] [taurus-pro-common/bin/main.go:324] [WARN] 用户 user456 登录失败次数过多
+[2025-09-22 16:45:59.942] [taurus-pro-common/bin/main.go:338] [INFO] 新用户注册: map[age:25 created_at:2025-09-22 16:45:59.942025 +0800 CST m=+0.002166924 email:zhangsan@example.com user_id:u123 username:张三]
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:323] [INFO] 用户 user123 注册成功
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:324] [WARN] 用户 user456 登录失败次数过多
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:338] [INFO] 新用户注册: map[age:25 created_at:2025-09-22 16:46:49.819741 +0800 CST m=+0.001581868 email:zhangsan@example.com user_id:u123 username:张三]
+[2025-09-22 16:51:51.627] [taurus-pro-common/bin/main.go:323] [INFO] 用户 user123 注册成功
+[2025-09-22 16:51:51.627] [taurus-pro-common/bin/main.go:324] [WARN] 用户 user456 登录失败次数过多
+[2025-09-22 16:51:51.628] [taurus-pro-common/bin/main.go:338] [INFO] 新用户注册: map[age:25 created_at:2025-09-22 16:51:51.628033 +0800 CST m=+0.001227396 email:zhangsan@example.com user_id:u123 username:张三]
+[2025-09-22 16:52:03.604] [taurus-pro-common/bin/main.go:323] [INFO] 用户 user123 注册成功
+[2025-09-22 16:52:03.604] [taurus-pro-common/bin/main.go:324] [WARN] 用户 user456 登录失败次数过多
+[2025-09-22 16:52:03.605] [taurus-pro-common/bin/main.go:338] [INFO] 新用户注册: map[age:25 created_at:2025-09-22 16:52:03.604952 +0800 CST m=+0.001575569 email:zhangsan@example.com user_id:u123 username:张三]

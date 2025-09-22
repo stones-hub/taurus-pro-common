@@ -42,7 +42,7 @@ func main() {
 	fmt.Println("\n=== Context 测试 ===")
 	contextExample()
 
-	cronExample()
+	// cronExample()
 }
 
 func contextExample() {
@@ -574,4 +574,88 @@ func templateExample() {
 		log.Fatalf("保存邮件内容失败: %v", err)
 	}
 	fmt.Printf("邮件内容已保存到 email.html\n")
+
+	// 9. 测试渲染邮件模板
+	fmt.Println("\n=== 测试邮件模板渲染 ===")
+
+	// 渲染欢迎邮件
+	welcomeData := map[string]interface{}{
+		"Username":    "张三",
+		"CompanyName": "Taurus",
+		"VerifyURL":   "https://taurus.com/verify?token=abc123",
+		"CurrentYear": time.Now().Year(),
+	}
+
+	welcomeEmail, err := manager.Render("email", "welcome.html", welcomeData)
+	if err != nil {
+		log.Fatalf("渲染欢迎邮件失败: %v", err)
+	}
+	fmt.Println("欢迎邮件渲染成功")
+
+	// 渲染密码重置邮件
+	resetData := map[string]interface{}{
+		"Username":       "张三",
+		"ResetURL":       "https://taurus.com/reset-password?token=xyz789",
+		"ExpirationTime": "24小时",
+		"CompanyName":    "Taurus",
+		"CurrentYear":    time.Now().Year(),
+	}
+
+	resetEmail, err := manager.Render("email", "reset_password.html", resetData)
+	if err != nil {
+		log.Fatalf("渲染密码重置邮件失败: %v", err)
+	}
+	fmt.Println("密码重置邮件渲染成功")
+
+	// 渲染订单确认邮件
+	orderData := map[string]interface{}{
+		"Username":    "张三",
+		"OrderNumber": "ORD20250922001",
+		"OrderTime":   time.Now().Format("2006-01-02 15:04:05"),
+		"Items": []map[string]interface{}{
+			{
+				"Name":     "商品A",
+				"Quantity": 2,
+				"Price":    99.00,
+				"Subtotal": 198.00,
+			},
+			{
+				"Name":     "商品B",
+				"Quantity": 1,
+				"Price":    299.00,
+				"Subtotal": 299.00,
+			},
+		},
+		"Total": 497.00,
+		"ShippingAddress": map[string]string{
+			"Name":    "张三",
+			"Phone":   "13800138000",
+			"Address": "北京市朝阳区xxx街道xxx号",
+		},
+		"OrderDetailURL":       "https://taurus.com/orders/ORD20250922001",
+		"CustomerServicePhone": "400-123-4567",
+		"CompanyName":          "Taurus",
+		"CurrentYear":          time.Now().Year(),
+	}
+
+	orderEmail, err := manager.Render("email", "order_confirmation.html", orderData)
+	if err != nil {
+		log.Fatalf("渲染订单确认邮件失败: %v", err)
+	}
+	fmt.Println("订单确认邮件渲染成功")
+
+	// 保存渲染结果
+	outputFiles := map[string]string{
+		"welcome_output.html": welcomeEmail,
+		"reset_output.html":   resetEmail,
+		"order_output.html":   orderEmail,
+	}
+
+	for filename, content := range outputFiles {
+		outputPath := filepath.Join("bin/templates/email", filename)
+		if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
+			log.Fatalf("保存邮件内容到 %s 失败: %v", filename, err)
+		}
+		fmt.Printf("邮件内容已保存到 %s\n", filename)
+	}
 }

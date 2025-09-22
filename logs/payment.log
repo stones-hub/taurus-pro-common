@@ -13,3 +13,15 @@
 [2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
 [2025-07-15 10:49:50.347] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
 [2025-07-15 10:49:50.348] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-07-15 10:49:50.347999 +0800 CST m=+0.003689192 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-09-22 16:45:59.941] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-09-22 16:45:59.942] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-09-22 16:45:59.942] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-09-22 16:45:59.942144 +0800 CST m=+0.002285831 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-09-22 16:46:49.819] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-09-22 16:46:49.819876 +0800 CST m=+0.001716221 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-09-22 16:51:51.627] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-09-22 16:51:51.628] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-09-22 16:51:51.628] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-09-22 16:51:51.628189 +0800 CST m=+0.001383310 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]
+[2025-09-22 16:52:03.604] [taurus-pro-common/bin/main.go:331] [INFO] 支付交易 pay345 完成
+[2025-09-22 16:52:03.604] [taurus-pro-common/bin/main.go:332] [ERROR] 支付交易 pay678 失败: 余额不足
+[2025-09-22 16:52:03.605] [taurus-pro-common/bin/main.go:370] [INFO] 支付处理: map[amount:99.9 created_at:2025-09-22 16:52:03.60509 +0800 CST m=+0.001713556 metadata:map[channel:mobile transaction_id:ali_123456] method:alipay order_id:o456 payment_id:p789 status:success user_id:u123]

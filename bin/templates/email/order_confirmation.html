@@ -1,0 +1,53 @@
+{{define "header"}}
+<h1>订单确认</h1>
+{{end}}
+
+{{define "content"}}
+<p>亲爱的 {{.Username}}，</p>
+
+<p>感谢您的订购！以下是您的订单详情：</p>
+
+<div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+    <p><strong>订单编号：</strong> {{.OrderNumber}}</p>
+    <p><strong>下单时间：</strong> {{.OrderTime}}</p>
+    
+    <h3>订单商品：</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: #eee;">
+            <th style="padding: 8px; text-align: left;">商品名称</th>
+            <th style="padding: 8px; text-align: right;">数量</th>
+            <th style="padding: 8px; text-align: right;">单价</th>
+            <th style="padding: 8px; text-align: right;">小计</th>
+        </tr>
+        {{range .Items}}
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">{{.Name}}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">{{.Quantity}}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">¥{{.Price}}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">¥{{.Subtotal}}</td>
+        </tr>
+        {{end}}
+        <tr>
+            <td colspan="3" style="padding: 8px; text-align: right;"><strong>总计：</strong></td>
+            <td style="padding: 8px; text-align: right;"><strong>¥{{.Total}}</strong></td>
+        </tr>
+    </table>
+</div>
+
+<div class="alert alert-info">
+    <p><strong>配送信息：</strong></p>
+    <p>收货人：{{.ShippingAddress.Name}}</p>
+    <p>电话：{{.ShippingAddress.Phone}}</p>
+    <p>地址：{{.ShippingAddress.Address}}</p>
+</div>
+
+<div style="text-align: center;">
+    <a href="{{.OrderDetailURL}}" class="button">查看订单详情</a>
+</div>
+{{end}}
+
+{{define "footer"}}
+<p>如有任何问题，请联系我们的客服团队</p>
+<p>电话：{{.CustomerServicePhone}}</p>
+<p>© {{.CurrentYear}} {{.CompanyName}}. 保留所有权利。</p>
+{{end}}
