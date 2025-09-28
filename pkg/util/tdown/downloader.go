@@ -281,6 +281,11 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 						progress = float64(historyDownloaded) / float64(totalSize) * 100
 					}
 
+					// 如果进度已经达到100%，跳过进度更新
+					if progress >= 100 {
+						return
+					}
+
 					// 计算预计剩余时间（秒）
 					eta := int64(0)
 					if speed > 0 && totalSize > historyDownloaded {

@@ -23,7 +23,7 @@ func main() {
 
 	// 测试用例2：大文件下载和断点续传
 	fmt.Println("\n2. 测试大文件下载和断点续传...")
-	// testLargeFileWithResume()
+	testLargeFileWithResume()
 
 	// 测试用例3：并发下载多个文件
 	fmt.Println("\n3. 测试并发下载多个文件...")
@@ -31,7 +31,7 @@ func main() {
 
 	// 测试用例4：顺序同步下载多个文件
 	fmt.Println("\n4. 测试顺序同步下载多个文件...")
-	testSequentialDownload()
+	// testSequentialDownload()
 
 	fmt.Println("\n=== 测试完成 ===")
 }
