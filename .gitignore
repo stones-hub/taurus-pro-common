@@ -30,3 +30,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+download/*
+*.jpg
+*.mp4
+!download/*.temp
