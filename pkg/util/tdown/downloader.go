@@ -91,12 +91,12 @@ func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) err
 
 	// 2. 确保目录存在
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return fmt.Errorf("创建目录失败: %w", err)
+		return fmt.Errorf("create download directory failed: %w", err)
 	}
 
 	// 发送开始下载进度
 	d.sendProgress(DownloadProgress{
-		CurrentStep: "开始下载",
+		CurrentStep: "start downloading",
 		Progress:    0,
 		Timestamp:   time.Now(),
 	})
@@ -107,12 +107,12 @@ func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) err
 	// 3. 获取文件大小
 	totalSize, err := d.fetchFileSize(ctx, client, url)
 	if err != nil {
-		return fmt.Errorf("获取文件大小失败: %w", err)
+		return fmt.Errorf("fetch file size failed: %w", err)
 	}
 
 	// 发送文件信息进度
 	d.sendProgress(DownloadProgress{
-		CurrentStep: "获取文件信息",
+		CurrentStep: "fetch file info",
 		Progress:    5,
 		TotalSize:   totalSize,
 		Timestamp:   time.Now(),
@@ -162,7 +162,7 @@ func (d *Downloader) fetchFileSize(ctx context.Context, client *http.Client, url
 			}
 		}
 	}
-	return 0, fmt.Errorf("无法获取文件大小")
+	return 0, fmt.Errorf("fetch file size failed")
 }
 
 // 执行实际下载
@@ -218,7 +218,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("创建请求失败: %w", err)
+				return fmt.Errorf("create request failed: %w", err)
 			}
 			continue
 		}
@@ -232,7 +232,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		resp, err := client.Do(req)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("下载失败: %w", err)
+				return fmt.Errorf("download failed: %w", err)
 			}
 			continue
 		}
@@ -312,7 +312,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		_, err = io.Copy(file, progressReader)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("写入文件失败: %w", err)
+				return fmt.Errorf("write file failed: %w", err)
 			}
 			continue
 		}
@@ -323,7 +323,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 
 	// 发送完成进度
 	d.sendProgress(DownloadProgress{
-		CurrentStep: "下载完成",
+		CurrentStep: "download completed",
 		Progress:    100,
 		TotalSize:   totalSize,
 		Downloaded:  totalSize,
