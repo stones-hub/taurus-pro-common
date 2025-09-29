@@ -35,17 +35,20 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mozillazg/go-httpheader v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/schollz/progressbar/v3 v3.18.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20250226130143-9025cce95817 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
