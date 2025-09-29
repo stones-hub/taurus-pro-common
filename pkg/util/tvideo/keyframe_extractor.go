@@ -208,7 +208,7 @@ func (k *KeyframeExtractor) ExtractKeyframes(ctx context.Context, videoPath stri
 
 		// 等待命令完成
 		if err := cmd.Wait(); err != nil {
-			return nil, debugInfo, fmt.Errorf("Python脚本执行失败: %v", err)
+			return nil, debugInfo, fmt.Errorf("python脚本执行失败: %v", err)
 		}
 	} else {
 		// 没有进度回调时，直接执行
@@ -216,7 +216,7 @@ func (k *KeyframeExtractor) ExtractKeyframes(ctx context.Context, videoPath stri
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			return nil, debugInfo, fmt.Errorf("Python脚本执行失败: %v", err)
+			return nil, debugInfo, fmt.Errorf("python脚本执行失败: %v", err)
 		}
 	}
 
