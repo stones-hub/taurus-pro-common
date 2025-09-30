@@ -133,10 +133,20 @@ func WithTempDir(dir string) FFmpegAudioOption {
 //   - *FFmpegAudio: 配置好的FFmpeg音频处理工具实例
 func NewFFmpegAudio(opts ...FFmpegAudioOption) *FFmpegAudio {
 	// 设置默认值
+	// 根据系统获取临时目录
+	tempDir, err := os.MkdirTemp("", "ffmpeg_audio")
+	if err != nil {
+		tempDir = "/tmp/ffmpeg_audio"
+	}
+	// 检查 tempDir 是否存在， 不存在创建
+	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+		os.MkdirAll(tempDir, 0755)
+	}
+
 	f := &FFmpegAudio{
 		ffmpegPath:  "/usr/local/bin/ffmpeg",  // 默认使用系统PATH中的ffmpeg
 		ffprobePath: "/usr/local/bin/ffprobe", // 默认使用系统PATH中的ffprobe
-		tempDir:     "/tmp",                   // 默认临时目录
+		tempDir:     tempDir,                  // 默认临时目录
 	}
 
 	// 应用选项
