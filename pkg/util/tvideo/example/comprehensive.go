@@ -37,6 +37,8 @@ func createProgressCallback() func(progress *tvideo.KeyframeProgress) {
 			fmt.Printf("\n----------------------------------------\n")
 			fmt.Printf("✓ 关键帧 #%d 已保存\n", frameCount)
 			fmt.Printf("  文件名: %s\n", filepath.Base(progress.NewFramePath))
+			fmt.Printf("  文件路径: %s\n", progress.NewFramePath)
+			fmt.Printf("  保存帧数: %d\n", progress.SavedFrames)
 			fmt.Printf("  时间点: %.2f秒\n", progress.NewFrameTimestamp)
 			fmt.Printf("  分辨率: %dx%d\n", progress.Width, progress.Height)
 			fmt.Printf("  大小　: %.2fKB\n", float64(progress.FileSize)/1024)
@@ -176,7 +178,7 @@ func main() {
 
 	// 演示不同模式
 	demonstrateSmartMode(extractor, videoPath)
-	demonstrateUniformMode(extractor, videoPath)
-	demonstrateIntervalMode(extractor, videoPath)
-	demonstratePresets(extractor, videoPath)
+	// demonstrateUniformMode(extractor, videoPath)
+	// demonstrateIntervalMode(extractor, videoPath)
+	// demonstratePresets(extractor, videoPath)
 }
