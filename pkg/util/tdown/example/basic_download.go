@@ -57,7 +57,7 @@ func testSmallFile() {
 	ctx := context.Background()
 
 	// 现在只需要提供相对路径，会自动基于基础路径
-	err := downloader.DownloadFile(ctx, url, "video_test_1.mp4")
+	_, err := downloader.DownloadFile(ctx, url, "video_test_1.mp4")
 	if err != nil {
 		log.Printf("小文件下载失败: %v", err)
 		return
@@ -90,7 +90,7 @@ func testLargeFileWithResume() {
 
 	// 第一次下载
 	fmt.Println("开始下载大文件...")
-	err := downloader.DownloadFile(ctx, url, "video_test_2.mp4")
+	_, err := downloader.DownloadFile(ctx, url, "video_test_2.mp4")
 	if err != nil {
 		log.Printf("大文件下载失败: %v", err)
 		return
@@ -156,7 +156,7 @@ func testConcurrentDownload() {
 				}),
 			)
 
-			err := taskDownloader.DownloadFile(context.Background(), task.url, task.filename)
+			_, err := taskDownloader.DownloadFile(context.Background(), task.url, task.filename)
 			duration := time.Since(startTime)
 
 			result := DownloadResult{
@@ -260,7 +260,7 @@ func testSequentialDownload() {
 		fmt.Printf("\n--- 开始下载第 %d 个文件: %s ---\n", i+1, task.name)
 		startTime := time.Now()
 
-		err := downloader.DownloadFile(ctx, task.url, task.filename)
+		_, err := downloader.DownloadFile(ctx, task.url, task.filename)
 		duration := time.Since(startTime)
 
 		result := DownloadResult{

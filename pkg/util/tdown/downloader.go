@@ -12,6 +12,13 @@ import (
 	"time"
 )
 
+// 下载结果信息
+type DownloadResult struct {
+	FilePath string        `json:"file_path"` // 文件路径
+	Duration time.Duration `json:"duration"`  // 耗时, 纳秒
+	FileSize int64         `json:"file_size"` // 文件大小
+}
+
 // 下载进度信息
 type DownloadProgress struct {
 	TotalSize    int64     `json:"total_size"`              // 总大小（字节）
@@ -80,7 +87,7 @@ func WithTimeout(timeout time.Duration) Option {
 }
 
 // 下载文件并支持进度回调
-func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) error {
+func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) (*DownloadResult, error) {
 	// 1. 构建完整文件路径（基于 SavePath）
 	var fullPath string
 	if d.SavePath != "" {
@@ -91,7 +98,7 @@ func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) err
 
 	// 2. 确保目录存在
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return fmt.Errorf("create download directory failed: %w", err)
+		return nil, fmt.Errorf("create download directory failed: %w", err)
 	}
 
 	// 发送开始下载进度
@@ -107,7 +114,7 @@ func (d *Downloader) DownloadFile(ctx context.Context, url, filePath string) err
 	// 3. 获取文件大小
 	totalSize, err := d.fetchFileSize(ctx, client, url)
 	if err != nil {
-		return fmt.Errorf("fetch file size failed: %w", err)
+		return nil, fmt.Errorf("fetch file size failed: %w", err)
 	}
 
 	// 发送文件信息进度
@@ -166,7 +173,8 @@ func (d *Downloader) fetchFileSize(ctx context.Context, client *http.Client, url
 }
 
 // 执行实际下载
-func (d *Downloader) execute(ctx context.Context, client *http.Client, url, filePath string, totalSize int64) error {
+func (d *Downloader) execute(ctx context.Context, client *http.Client, url, filePath string, totalSize int64) (*DownloadResult, error) {
+	startTime := time.Now()
 	var downloaded int64      // 已下载大小
 	var lastTime = time.Now() // 最后下载时间
 	var lastDownloaded int64  // 最后下载的字节数
@@ -175,7 +183,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 	// 检查文件是否已存在
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("open file failed: %w", err)
+		return nil, fmt.Errorf("open file failed: %w", err)
 	}
 	defer file.Close()
 
@@ -195,7 +203,11 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 				Downloaded:  totalSize,
 				Timestamp:   time.Now(),
 			})
-			return nil
+			return &DownloadResult{
+				FilePath: filePath,
+				Duration: time.Since(startTime),
+				FileSize: totalSize,
+			}, nil
 		}
 	}
 
@@ -218,7 +230,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("create request failed: %w", err)
+				return nil, fmt.Errorf("create request failed: %w", err)
 			}
 			continue
 		}
@@ -232,7 +244,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		resp, err := client.Do(req)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("download failed: %w", err)
+				return nil, fmt.Errorf("download failed: %w", err)
 			}
 			continue
 		}
@@ -256,7 +268,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 			supportsResume = false
 		default:
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("download failed, status code: %d", resp.StatusCode)
+				return nil, fmt.Errorf("download failed, status code: %d", resp.StatusCode)
 			}
 			continue
 		}
@@ -317,7 +329,7 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		_, err = io.Copy(file, progressReader)
 		if err != nil {
 			if retry >= d.MaxRetries {
-				return fmt.Errorf("write file failed: %w", err)
+				return nil, fmt.Errorf("write file failed: %w", err)
 			}
 			continue
 		}
@@ -335,7 +347,11 @@ func (d *Downloader) execute(ctx context.Context, client *http.Client, url, file
 		Timestamp:   time.Now(),
 	})
 
-	return nil
+	return &DownloadResult{
+		FilePath: filePath,
+		Duration: time.Since(startTime),
+		FileSize: totalSize,
+	}, nil
 }
 
 // 进度读取器
