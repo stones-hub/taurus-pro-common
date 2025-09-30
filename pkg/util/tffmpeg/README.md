@@ -147,16 +147,79 @@ musicConfig := ffmpeg.CreatePresetConfig("music")
 result, err := ffmpeg.ExtractAudioFromVideo(context.Background(), "input.mp4", "./output", musicConfig)
 ```
 
-### 批量处理
+### 批量处理（用户自定义实现）
 
+由于批量处理的需求和策略因人而异，我们建议用户根据自己的需求自行实现批量处理逻辑。以下是两种常见的实现方式：
+
+#### 串行处理
 ```go
-videoPaths := []string{"video1.mp4", "video2.mp4", "video3.mp4"}
-options := &tffmpeg.AudioExtractionOptions{
-    Format:  tffmpeg.AudioFormatMP3,
-    Quality: tffmpeg.AudioQualityMedium,
+func batchExtractAudioSerial(ffmpeg *tffmpeg.FFmpegAudio, ctx context.Context, videoPaths []string, outputDir string) []*tffmpeg.AudioExtractionResult {
+    results := make([]*tffmpeg.AudioExtractionResult, 0, len(videoPaths))
+    
+    options := &tffmpeg.AudioExtractionOptions{
+        Format:  tffmpeg.AudioFormatMP3,
+        Quality: tffmpeg.AudioQualityMedium,
+    }
+    
+    for i, videoPath := range videoPaths {
+        videoName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+        videoOutputDir := filepath.Join(outputDir, videoName)
+        
+        result, err := ffmpeg.ExtractAudioFromVideo(ctx, videoPath, videoOutputDir, options)
+        if err != nil {
+            log.Printf("处理视频 %s 失败: %v", videoPath, err)
+            continue
+        }
+        
+        results = append(results, result)
+    }
+    
+    return results
 }
+```
 
-results, err := ffmpeg.BatchExtractAudio(context.Background(), videoPaths, "./output", options)
+#### 并行处理
+```go
+func batchExtractAudioParallel(ffmpeg *tffmpeg.FFmpegAudio, ctx context.Context, videoPaths []string, outputDir string) []*tffmpeg.AudioExtractionResult {
+    results := make([]*tffmpeg.AudioExtractionResult, 0, len(videoPaths))
+    var mu sync.Mutex
+    var wg sync.WaitGroup
+    
+    // 限制并发数量
+    maxConcurrency := 3
+    semaphore := make(chan struct{}, maxConcurrency)
+    
+    for i, videoPath := range videoPaths {
+        wg.Add(1)
+        go func(index int, path string) {
+            defer wg.Done()
+            
+            semaphore <- struct{}{}
+            defer func() { <-semaphore }()
+            
+            videoName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+            videoOutputDir := filepath.Join(outputDir, videoName)
+            
+            options := &tffmpeg.AudioExtractionOptions{
+                Format:  tffmpeg.AudioFormatMP3,
+                Quality: tffmpeg.AudioQualityMedium,
+            }
+            
+            result, err := ffmpeg.ExtractAudioFromVideo(ctx, path, videoOutputDir, options)
+            if err != nil {
+                log.Printf("处理视频 %s 失败: %v", path, err)
+                return
+            }
+            
+            mu.Lock()
+            results = append(results, result)
+            mu.Unlock()
+        }(i, videoPath)
+    }
+    
+    wg.Wait()
+    return results
+}
 ```
 
 ## 高级功能

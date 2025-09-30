@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -121,21 +122,20 @@ func runCoreTests(ffmpeg *tffmpeg.FFmpegAudio) {
 		fmt.Printf("✅ 格式转换成功\n")
 	}
 
-	// 测试4: 批量处理
-	// 测试批量处理多个视频文件的功能
-	fmt.Println("\n测试4: 批量处理")
+	// 测试4: 批量处理（用户自定义实现）
+	// 展示如何自己实现批量处理，支持串行和并行两种方式
+	fmt.Println("\n测试4: 批量处理（用户自定义实现）")
 	videoPaths := []string{testVideoPath, testVideoPath} // 使用同一个文件测试批量处理
-	batchOptions := &tffmpeg.AudioExtractionOptions{
-		Format:  tffmpeg.AudioFormatMP3,     // 输出MP3格式
-		Quality: tffmpeg.AudioQualityMedium, // 中等质量
-	}
 
-	batchResults, err := ffmpeg.BatchExtractAudio(ctx, videoPaths, outputDir, batchOptions)
-	if err != nil {
-		fmt.Printf("❌ 批量处理失败: %v\n", err)
-	} else {
-		fmt.Printf("✅ 批量处理成功，共处理 %d 个文件\n", len(batchResults))
-	}
+	// 方式1: 串行处理
+	fmt.Println("串行批量处理:")
+	serialResults := batchExtractAudioSerial(ffmpeg, ctx, videoPaths, outputDir)
+	fmt.Printf("✅ 串行批量处理完成，共处理 %d 个文件\n", len(serialResults))
+
+	// 方式2: 并行处理
+	fmt.Println("并行批量处理:")
+	parallelResults := batchExtractAudioParallel(ffmpeg, ctx, videoPaths, outputDir)
+	fmt.Printf("✅ 并行批量处理完成，共处理 %d 个文件\n", len(parallelResults))
 }
 
 // runAdvancedTests 运行高级功能测试
@@ -486,4 +486,92 @@ func findTestVideo() string {
 	}
 
 	return ""
+}
+
+// batchExtractAudioSerial 串行批量处理音频提取
+// 按顺序逐个处理视频文件，适合需要严格控制资源使用或处理顺序的场景
+func batchExtractAudioSerial(ffmpeg *tffmpeg.FFmpegAudio, ctx context.Context, videoPaths []string, outputDir string) []*tffmpeg.AudioExtractionResult {
+	results := make([]*tffmpeg.AudioExtractionResult, 0, len(videoPaths))
+
+	options := &tffmpeg.AudioExtractionOptions{
+		Format:  tffmpeg.AudioFormatMP3,     // 输出MP3格式
+		Quality: tffmpeg.AudioQualityMedium, // 中等质量
+		ProgressCallback: func(progress *tffmpeg.FFmpegProgress) {
+			fmt.Printf("  串行处理进度: %.1f%%\n", progress.Progress)
+		},
+	}
+
+	for i, videoPath := range videoPaths {
+		fmt.Printf("  处理视频 %d/%d: %s\n", i+1, len(videoPaths), filepath.Base(videoPath))
+
+		// 为每个视频创建独立的输出目录
+		videoName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+		videoOutputDir := filepath.Join(outputDir, "serial_"+videoName)
+
+		result, err := ffmpeg.ExtractAudioFromVideo(ctx, videoPath, videoOutputDir, options)
+		if err != nil {
+			fmt.Printf("  ❌ 处理视频 %s 失败: %v\n", videoPath, err)
+			continue
+		}
+
+		results = append(results, result)
+		fmt.Printf("  ✅ 视频 %s 处理完成\n", videoName)
+	}
+
+	return results
+}
+
+// batchExtractAudioParallel 并行批量处理音频提取
+// 使用goroutine并发处理多个视频文件，适合需要提高处理速度的场景
+func batchExtractAudioParallel(ffmpeg *tffmpeg.FFmpegAudio, ctx context.Context, videoPaths []string, outputDir string) []*tffmpeg.AudioExtractionResult {
+	results := make([]*tffmpeg.AudioExtractionResult, 0, len(videoPaths))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// 限制并发数量，避免系统资源过载
+	maxConcurrency := 3
+	semaphore := make(chan struct{}, maxConcurrency)
+
+	for i, videoPath := range videoPaths {
+		wg.Add(1)
+		go func(index int, path string) {
+			defer wg.Done()
+
+			// 获取信号量
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			fmt.Printf("  启动处理视频 %d/%d: %s\n", index+1, len(videoPaths), filepath.Base(path))
+
+			// 为每个视频创建独立的输出目录
+			videoName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+			videoOutputDir := filepath.Join(outputDir, "parallel_"+videoName)
+
+			options := &tffmpeg.AudioExtractionOptions{
+				Format:  tffmpeg.AudioFormatMP3,     // 输出MP3格式
+				Quality: tffmpeg.AudioQualityMedium, // 中等质量
+				ProgressCallback: func(progress *tffmpeg.FFmpegProgress) {
+					fmt.Printf("  并行处理 [%s] 进度: %.1f%%\n", videoName, progress.Progress)
+				},
+			}
+
+			result, err := ffmpeg.ExtractAudioFromVideo(ctx, path, videoOutputDir, options)
+			if err != nil {
+				fmt.Printf("  ❌ 处理视频 %s 失败: %v\n", path, err)
+				return
+			}
+
+			// 线程安全地添加结果
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+
+			fmt.Printf("  ✅ 视频 %s 处理完成\n", videoName)
+		}(i, videoPath)
+	}
+
+	// 等待所有goroutine完成
+	wg.Wait()
+
+	return results
 }

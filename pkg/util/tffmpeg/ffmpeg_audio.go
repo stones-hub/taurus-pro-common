@@ -761,48 +761,6 @@ func (f *FFmpegAudio) getAudioInfo(ctx context.Context, audioPath string) (*Audi
 	}, nil
 }
 
-// BatchExtractAudio 批量提取音频
-// 对多个视频文件进行批量音频提取
-// 参数:
-//   - ctx: 上下文，用于控制超时和取消操作
-//   - videoPaths: 视频文件路径列表
-//   - outputDir: 输出目录路径
-//   - options: 音频提取选项
-//
-// 返回:
-//   - []*AudioExtractionResult: 提取结果列表
-//   - error: 错误信息
-func (f *FFmpegAudio) BatchExtractAudio(ctx context.Context, videoPaths []string, outputDir string, options *AudioExtractionOptions) ([]*AudioExtractionResult, error) {
-	results := make([]*AudioExtractionResult, 0, len(videoPaths))
-
-	for i, videoPath := range videoPaths {
-		// 为每个视频创建独立的输出目录
-		videoName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
-		videoOutputDir := filepath.Join(outputDir, videoName)
-
-		// 提取音频
-		result, err := f.ExtractAudioFromVideo(ctx, videoPath, videoOutputDir, options)
-		if err != nil {
-			// 记录错误但继续处理其他文件
-			fmt.Printf("处理视频 %s 失败: %v\n", videoPath, err)
-			continue
-		}
-
-		results = append(results, result)
-
-		// 如果启用了进度监控，可以在这里报告批量处理进度
-		if options != nil && options.ProgressCallback != nil {
-			progress := &FFmpegProgress{
-				Progress: float64(i+1) / float64(len(videoPaths)) * 100,
-				Message:  fmt.Sprintf("批量处理进度: %d/%d", i+1, len(videoPaths)),
-			}
-			options.ProgressCallback(progress)
-		}
-	}
-
-	return results, nil
-}
-
 // ConvertAudioFormat 转换音频格式
 // 将音频文件从一种格式转换为另一种格式
 // 参数:
