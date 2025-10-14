@@ -134,7 +134,7 @@ func NewFFmpegVideo(opts ...FFmpegVideoOption) *FFmpegVideo {
 
 // ExtractVideo 从视频中提取片段（主要入口方法）
 // 这是最常用的方法，支持从视频文件中提取指定时间段的片段并保存为指定格式
-func (f *FFmpegVideo) ExtractVideo(ctx context.Context, videoPath string, outputDir string, options *VideoExtractionOptions) (*VideoExtractionResult, error) {
+func (f *FFmpegVideo) ExtractVideo(ctx context.Context, videoPath string, outputDir string, outputFileName string, options *VideoExtractionOptions) (*VideoExtractionResult, error) {
 	// 验证FFmpeg可用性
 	if err := f.CheckFFmpegAvailable(); err != nil {
 		return nil, fmt.Errorf("FFmpeg检查失败: %v", err)
@@ -150,14 +150,14 @@ func (f *FFmpegVideo) ExtractVideo(ctx context.Context, videoPath string, output
 
 	// 执行视频提取
 	if options.EnableProgress {
-		return f.extractVideoWithProgress(ctx, videoPath, outputDir, config, options.ProgressCallback)
+		return f.extractVideoWithProgress(ctx, videoPath, outputDir, outputFileName, config, options.ProgressCallback)
 	} else {
-		return f.extractVideo(ctx, videoPath, outputDir, config)
+		return f.extractVideo(ctx, videoPath, outputDir, outputFileName, config)
 	}
 }
 
 // extractVideo 基本视频提取
-func (f *FFmpegVideo) extractVideo(ctx context.Context, videoPath string, outputDir string, config *VideoExtractionConfig) (*VideoExtractionResult, error) {
+func (f *FFmpegVideo) extractVideo(ctx context.Context, videoPath string, outputDir string, outputFileName string, config *VideoExtractionConfig) (*VideoExtractionResult, error) {
 	startTime := time.Now()
 
 	// 验证输入文件
@@ -172,7 +172,11 @@ func (f *FFmpegVideo) extractVideo(ctx context.Context, videoPath string, output
 
 	// 生成输出文件名
 	inputName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
-	outputFileName := fmt.Sprintf("%s_clip.%s", inputName, config.Format)
+	if outputFileName != "" {
+		outputFileName = fmt.Sprintf("%s.%s", outputFileName, config.Format)
+	} else {
+		outputFileName = fmt.Sprintf("%s_clip.%s", inputName, config.Format)
+	}
 	outputPath := filepath.Join(outputDir, outputFileName)
 
 	// 构建FFmpeg命令
@@ -216,7 +220,7 @@ func (f *FFmpegVideo) extractVideo(ctx context.Context, videoPath string, output
 }
 
 // extractVideoWithProgress 带进度监控的视频提取
-func (f *FFmpegVideo) extractVideoWithProgress(ctx context.Context, videoPath string, outputDir string, config *VideoExtractionConfig, progressCallback func(progress *FFmpegProgress)) (*VideoExtractionResult, error) {
+func (f *FFmpegVideo) extractVideoWithProgress(ctx context.Context, videoPath string, outputDir string, outputFileName string, config *VideoExtractionConfig, progressCallback func(progress *FFmpegProgress)) (*VideoExtractionResult, error) {
 	startTime := time.Now()
 
 	// 验证输入文件
@@ -246,7 +250,11 @@ func (f *FFmpegVideo) extractVideoWithProgress(ctx context.Context, videoPath st
 
 	// 生成输出文件名
 	inputName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
-	outputFileName := fmt.Sprintf("%s_clip.%s", inputName, config.Format)
+	if outputFileName != "" {
+		outputFileName = fmt.Sprintf("%s.%s", outputFileName, config.Format)
+	} else {
+		outputFileName = fmt.Sprintf("%s_clip.%s", inputName, config.Format)
+	}
 	outputPath := filepath.Join(outputDir, outputFileName)
 
 	// 构建FFmpeg命令

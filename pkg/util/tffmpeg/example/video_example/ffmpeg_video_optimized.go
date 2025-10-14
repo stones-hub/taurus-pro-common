@@ -73,7 +73,7 @@ func runBasicExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		Duration:     "00:00:10.50",
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("基本视频处理失败: %v\n", err)
 		return
@@ -102,7 +102,7 @@ func runHighQualityExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		Duration:     "00:00:10",
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("高质量视频处理失败: %v\n", err)
 		return
@@ -142,7 +142,7 @@ func runProgressExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		},
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("\n带进度显示的视频处理失败: %v\n", err)
 		return
@@ -174,7 +174,7 @@ func runFormatConvertExample(ffmpeg *tffmpeg.FFmpegVideo) {
 			Duration:     "00:00:10",
 		}
 
-		result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+		result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 		if err != nil {
 			log.Printf("转换到%s格式失败: %v\n", format, err)
 			continue
@@ -198,7 +198,7 @@ func runClipExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		AudioEnabled: true,
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("视频片段提取失败: %v\n", err)
 		return
@@ -226,7 +226,7 @@ func runCompressExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		Duration:     "00:00:10",
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("视频压缩失败: %v\n", err)
 		return
@@ -258,7 +258,7 @@ func runNoAudioExample(ffmpeg *tffmpeg.FFmpegVideo) {
 		Duration:     "00:00:10",
 	}
 
-	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, options)
+	result, err := ffmpeg.ExtractVideo(context.Background(), inputVideo, outputDir, "", options)
 	if err != nil {
 		log.Printf("无音频视频处理失败: %v\n", err)
 		return
