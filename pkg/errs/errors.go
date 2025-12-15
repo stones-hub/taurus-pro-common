@@ -91,7 +91,8 @@ func (e *Error) Unwrap() error {
 // Is 实现标准库错误比较接口
 // 对应标准库: errors.Is(err, target error) bool
 // 当调用 errors.Is(err, target) 时，会自动调用此方法
-// 如果是位掩码模式，且目标是单个位，则使用位检查；否则使用精确匹配
+// 如果是位掩码模式，使用完全包含检查（e.code & t.code == t.code）
+// 这样无论是单个位还是组合位，都能正确判断目标是否完全被包含
 func (e *Error) Is(target error) bool {
 	if e == nil {
 		return target == nil
@@ -106,27 +107,20 @@ func (e *Error) Is(target error) bool {
 		return false
 	}
 
-	// 如果源错误是位掩码模式，且目标错误码是单个位，使用位检查
-	if e.isBitmask && isSingleBit(t.code) {
-		return (e.code & t.code) != 0
+	// 如果源错误和目标错误都是位掩码模式，使用完全包含检查
+	// 原理：e.code & t.code == t.code 表示源错误完全包含目标错误的所有位
+	// 这样无论是单个位还是组合位，都能正确判断
+	if e.isBitmask && t.isBitmask {
+		return (e.code & t.code) == t.code
 	}
 
-	// 否则使用精确匹配
+	// 普通模式使用精确匹配
 	return e.code == t.code
 }
 
 // 注意：Error 类型不实现 As() 方法
 // 因为 errors.As() 会自动使用类型断言来处理
 // wrappedError.As() 中调用 errors.As(&e.errInfo, target) 也能正常工作
-
-// isSingleBit 检查一个值是否是单个位（2的幂次方）
-// 内部函数，用于 Is() 方法中判断是否使用位检查
-func isSingleBit(value uint64) bool {
-	if value == 0 {
-		return false
-	}
-	return (value & (value - 1)) == 0
-}
 
 // 未知错误常量
 var errUnknown = New(999999, "unknown error")

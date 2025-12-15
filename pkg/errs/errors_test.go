@@ -79,12 +79,39 @@ func TestIsNormal(t *testing.T) {
 
 func TestIsBitmask(t *testing.T) {
 	combined := NewBitmask(ErrInvalidParam|ErrNotFound, "combined")
+
+	// 测试单个位：应该完全包含
 	if !errors.Is(combined, NewBitmask(ErrInvalidParam, "")) {
+		t.Fatalf("should match single bit")
+	}
+	if !errors.Is(combined, NewBitmask(ErrNotFound, "")) {
 		t.Fatalf("should match single bit")
 	}
 	if errors.Is(combined, NewBitmask(ErrTimeout, "")) {
 		t.Fatalf("should not match unrelated bit")
 	}
+
+	// 测试组合位：完全包含的情况
+	// combined = ErrInvalidParam|ErrNotFound (0b0011)
+	// 检查是否完全包含 ErrInvalidParam|ErrNotFound
+	if !errors.Is(combined, NewBitmask(ErrInvalidParam|ErrNotFound, "")) {
+		t.Fatalf("should match combined bits when fully contained")
+	}
+
+	// 测试组合位：部分包含的情况（应该返回 false，因为不完全包含）
+	// combined = ErrInvalidParam|ErrNotFound (0b0011)
+	// 检查是否完全包含 ErrInvalidParam|ErrTimeout (0b0101)
+	// 结果：0b0011 & 0b0101 = 0b0001，不等于 0b0101，所以应该返回 false
+	if errors.Is(combined, NewBitmask(ErrInvalidParam|ErrTimeout, "")) {
+		t.Fatalf("should not match when only partially contained")
+	}
+
+	// 测试组合位：完全不包含的情况
+	if errors.Is(combined, NewBitmask(ErrTimeout, "")) {
+		t.Fatalf("should not match unrelated bit")
+	}
+
+	// 测试模式隔离：位掩码和普通错误不应该匹配
 	normal := New(50001, "normal")
 	if errors.Is(combined, normal) || errors.Is(normal, NewBitmask(ErrInvalidParam, "")) {
 		t.Fatalf("bitmask and normal should not match")
