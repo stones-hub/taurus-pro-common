@@ -1,135 +1,137 @@
-// Copyright (c) 2025 Taurus Team. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package errs_test
 
 import (
 	stderrors "errors"
 	"fmt"
-	"log"
 
 	"github.com/stones-hub/taurus-pro-common/pkg/errs"
 )
 
-// 示例：基本错误创建和使用
+// 基本创建与提取
 func ExampleNew() {
 	err := errs.New(10001, "invalid params")
-	fmt.Printf("Code: %d, Message: %s\n", err.Code(), err.Msg())
+	fmt.Printf("Code: %d, Message: %s\n", errs.Code(err), errs.Message(err))
 	// Output: Code: 10001, Message: invalid params
 }
 
-// 示例：使用格式化字符串创建错误
+// 格式化创建
 func ExampleErrorf() {
-	err := errs.Errorf(10002, "invalid params: %s", "username")
+	err := errs.Errorf(10002, "invalid params: %s", "name")
 	fmt.Printf("Code: %d, Message: %s\n", err.Code(), err.Msg())
-	// Output: Code: 10002, Message: invalid params: username
+	// Output: Code: 10002, Message: invalid params: name
 }
 
-// 示例：从任意 error 中提取错误码和消息
-func ExampleCode() {
-	err := errs.New(10003, "test error")
-	code := errs.Code(err)
-	msg := errs.Message(err)
-	fmt.Printf("Code: %d, Message: %s\n", code, msg)
-	// Output: Code: 10003, Message: test error
-}
-
-// 示例：错误包装
+// 包装错误
 func ExampleWrap() {
-	original := fmt.Errorf("original error")
-	wrapped := errs.Wrap(original, 20001, "work failed")
-
-	code := errs.Code(wrapped)
-	msg := errs.Message(wrapped)
-	fmt.Printf("Code: %d, Message: %s\n", code, msg)
-	// Output: Code: 20001, Message: work failed
+	orig := fmt.Errorf("orig")
+	err := errs.Wrap(orig, 20001, "wrap failed")
+	fmt.Printf("Code: %d, Message: %s\n", errs.Code(err), errs.Message(err))
+	// Output: Code: 20001, Message: wrap failed
 }
 
-// 示例：实际业务场景
-func Example_usage() {
-	// 模拟业务函数
-	doSomething := func(a, b int) (int, error) {
-		if a < 0 {
-			return 0, errs.New(10001, "invalid params")
-		}
-		return a + b, nil
-	}
+// 普通错误比较
+func ExampleIs_normal() {
+	err1 := errs.New(30001, "a")
+	err2 := errs.New(30001, "b")
+	err3 := errs.New(30002, "c")
+	fmt.Println(stderrors.Is(err1, err2))
+	fmt.Println(stderrors.Is(err1, err3))
+	// Output:
+	// true
+	// false
+}
 
-	// 包装错误后继续向上返回
-	work := func() error {
-		v, err := doSomething(-1, 2)
-		if err != nil {
-			errcode := errs.Code(err)
-			log.Printf("doSomething failed: result = %d", errcode)
-			// 包装后继续向上返回
-			return errs.Wrap(err, 20001, "work failed")
+// 位掩码错误：组合、判断与比对
+func ExampleIs_bitmask() {
+	const (
+		ErrInvalidParam uint64 = 1 << 0
+		ErrNotFound     uint64 = 1 << 1
+		ErrTimeout      uint64 = 1 << 2
+	)
+
+	combined := errs.NewBitmask(ErrInvalidParam|ErrNotFound, "combined")
+
+	fmt.Println(stderrors.Is(combined, errs.NewBitmask(ErrInvalidParam, ""))) // 包含
+	fmt.Println(stderrors.Is(combined, errs.NewBitmask(ErrTimeout, "")))      // 不包含
+
+	code := errs.Code(combined)
+	fmt.Println(code&ErrInvalidParam != 0)                  // 位检查
+	fmt.Println(code&(ErrInvalidParam|ErrNotFound) == code) // 同时包含
+	fmt.Println(code&(ErrTimeout) == 0)                     // 不包含
+	// Output:
+	// true
+	// false
+	// true
+	// true
+	// true
+}
+
+// 位掩码场景：表单验证（组合错误判断）
+func Example_bitmaskFormValidation() {
+	const (
+		ErrUserEmpty uint64 = 1 << 0
+		ErrPwdShort  uint64 = 1 << 1
+		ErrEmailBad  uint64 = 1 << 2
+	)
+
+	validate := func(user, pwd, email string) error {
+		var code uint64
+		if user == "" {
+			code |= ErrUserEmpty
 		}
-		_ = v
+		if len(pwd) < 6 {
+			code |= ErrPwdShort
+		}
+		if email == "" || !contains(email, "@") {
+			code |= ErrEmailBad
+		}
+		if code != 0 {
+			return errs.NewBitmask(code, "validation failed")
+		}
 		return nil
 	}
 
-	err := work()
+	err := validate("", "123", "bad")
 	if err != nil {
-		log.Printf("work failed: %v", err)
-		log.Printf("work failed: errcode = %d", errs.Code(err))
-		log.Printf("work failed: errmsg = %s", errs.Message(err))
+		c := errs.Code(err)
+		fmt.Printf("code=%d\n", c)
+		fmt.Println(stderrors.Is(err, errs.NewBitmask(ErrUserEmpty, "")))
+		fmt.Println(stderrors.Is(err, errs.NewBitmask(ErrPwdShort, "")))
+		fmt.Println(stderrors.Is(err, errs.NewBitmask(ErrEmailBad, "")))
+		fmt.Println(c&(ErrUserEmpty|ErrPwdShort|ErrEmailBad) == c)
 	}
-}
-
-// 示例：错误比较
-func ExampleIs() {
-	err1 := errs.New(10001, "error 1")
-	err2 := errs.New(10001, "error 2") // 相同错误码
-	err3 := errs.New(10002, "error 3") // 不同错误码
-
-	fmt.Printf("err1 == err2 (same code): %v\n", stderrors.Is(err1, err2))
-	fmt.Printf("err1 == err3 (different code): %v\n", stderrors.Is(err1, err3))
 	// Output:
-	// err1 == err2 (same code): true
-	// err1 == err3 (different code): false
+	// code=7
+	// true
+	// true
+	// true
+	// true
 }
 
-// 示例：错误类型断言
-func ExampleAs() {
-	err := errs.New(10001, "test error")
+// 混合使用：普通错误与位掩码错误
+func Example_mixedModes() {
+	normal := errs.New(40001, "normal")
+	bitmask := errs.NewBitmask(1<<0|1<<1, "bm")
 
-	var e *errs.Error
-	if stderrors.As(err, &e) {
-		fmt.Printf("Code: %d, Message: %s\n", e.Code(), e.Msg())
-	}
-	// Output: Code: 10001, Message: test error
+	fmt.Println(stderrors.Is(normal, errs.New(40001, "")))        // 精确匹配
+	fmt.Println(stderrors.Is(bitmask, errs.NewBitmask(1<<0, ""))) // 位检查
+	fmt.Println(stderrors.Is(bitmask, normal))                    // 模式不同，不匹配
+	// Output:
+	// true
+	// true
+	// false
 }
 
-// 示例：映射到外部协议
-func Example_externalProtocol() {
-	// 模拟 API 处理器
-	handleRequest := func() {
-		// 模拟业务逻辑
-		err := errs.New(10001, "invalid params")
+// 辅助函数：简单包含
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (len(sub) == 0 || indexOf(s, sub) >= 0)
+}
 
-		if err != nil {
-			// 提取错误码，映射到外部协议
-			result := errs.Code(err)
-			if result == 0 {
-				result = 999999 // UnclassifiedError
-			}
-
-			// 在实际场景中，这里会将 result 设置到响应中
-			fmt.Printf("Response Result: %d\n", result)
+func indexOf(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
 		}
 	}
-
-	handleRequest()
-	// Output: Response Result: 10001
+	return -1
 }

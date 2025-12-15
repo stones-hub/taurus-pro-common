@@ -23,21 +23,33 @@ import (
 
 // Error 自定义错误类型，包含错误码和错误消息
 type Error struct {
-	code int32
-	msg  string
+	code      uint64
+	msg       string
+	isBitmask bool // 标识是否为位掩码模式
 }
 
-// New 创建一个新的错误
-func New(code int32, msg string) *Error {
-	return &Error{code: code, msg: msg}
+// New 创建一个新的错误（普通错误码模式）
+func New(code uint64, msg string) *Error {
+	return &Error{code: code, msg: msg, isBitmask: false}
 }
 
-// Errorf 使用格式化字符串创建错误
-func Errorf(code int32, format string, args ...any) *Error {
-	return &Error{code: code, msg: fmt.Sprintf(format, args...)}
+// Errorf 使用格式化字符串创建错误（普通错误码模式）
+func Errorf(code uint64, format string, args ...any) *Error {
+	return &Error{code: code, msg: fmt.Sprintf(format, args...), isBitmask: false}
 }
 
-// Error 实现 error 接口
+// NewBitmask 创建位掩码错误
+func NewBitmask(code uint64, msg string) *Error {
+	return &Error{code: code, msg: msg, isBitmask: true}
+}
+
+// Bitmaskf 使用格式化字符串创建位掩码错误
+func Bitmaskf(code uint64, format string, args ...any) *Error {
+	return &Error{code: code, msg: fmt.Sprintf(format, args...), isBitmask: true}
+}
+
+// Error 实现标准库 error 接口
+// 对应标准库: error.Error() string
 func (e *Error) Error() string {
 	if e == nil {
 		return "nil"
@@ -46,7 +58,7 @@ func (e *Error) Error() string {
 }
 
 // Code 返回错误码
-func (e *Error) Code() int32 {
+func (e *Error) Code() uint64 {
 	if e == nil {
 		return 0
 	}
@@ -69,12 +81,17 @@ func (e *Error) String() string {
 	return fmt.Sprintf("errcode: %d, errmsg: %s", e.code, e.msg)
 }
 
-// Unwrap 支持错误解包，用于 errors.Unwrap
+// Unwrap 实现标准库错误解包接口
+// 对应标准库: errors.Unwrap(err error) error
+// 用于支持错误链（error chain）
 func (e *Error) Unwrap() error {
 	return nil
 }
 
-// Is 支持错误比较，用于 errors.Is
+// Is 实现标准库错误比较接口
+// 对应标准库: errors.Is(err, target error) bool
+// 当调用 errors.Is(err, target) 时，会自动调用此方法
+// 如果是位掩码模式，且目标是单个位，则使用位检查；否则使用精确匹配
 func (e *Error) Is(target error) bool {
 	if e == nil {
 		return target == nil
@@ -83,7 +100,32 @@ func (e *Error) Is(target error) bool {
 	if !ok {
 		return false
 	}
+
+	// 如果源错误和目标错误的模式不同，不匹配
+	if e.isBitmask != t.isBitmask {
+		return false
+	}
+
+	// 如果源错误是位掩码模式，且目标错误码是单个位，使用位检查
+	if e.isBitmask && isSingleBit(t.code) {
+		return (e.code & t.code) != 0
+	}
+
+	// 否则使用精确匹配
 	return e.code == t.code
+}
+
+// 注意：Error 类型不实现 As() 方法
+// 因为 errors.As() 会自动使用类型断言来处理
+// wrappedError.As() 中调用 errors.As(&e.errInfo, target) 也能正常工作
+
+// isSingleBit 检查一个值是否是单个位（2的幂次方）
+// 内部函数，用于 Is() 方法中判断是否使用位检查
+func isSingleBit(value uint64) bool {
+	if value == 0 {
+		return false
+	}
+	return (value & (value - 1)) == 0
 }
 
 // 未知错误常量
@@ -92,7 +134,7 @@ var errUnknown = New(999999, "unknown error")
 // Code 从 error 中提取错误码
 // 如果 error 是 *Error 类型，返回其错误码
 // 否则返回未知错误码 999999
-func Code(err error) int32 {
+func Code(err error) uint64 {
 	if err == nil {
 		return 0
 	}
@@ -119,7 +161,7 @@ func Message(err error) string {
 
 // Wrap 包装错误，保留原始错误信息
 // 返回一个新的 *Error，但保留原始错误链
-func Wrap(err error, code int32, msg string) error {
+func Wrap(err error, code uint64, msg string) error {
 	if err == nil {
 		return nil
 	}
@@ -130,12 +172,34 @@ func Wrap(err error, code int32, msg string) error {
 }
 
 // Wrapf 使用格式化字符串包装错误
-func Wrapf(err error, code int32, format string, args ...any) error {
+func Wrapf(err error, code uint64, format string, args ...any) error {
 	if err == nil {
 		return nil
 	}
 	return &wrappedError{
 		errInfo: *Errorf(code, format, args...),
+		err:     err,
+	}
+}
+
+// WrapBitmask 包装错误为位掩码错误
+func WrapBitmask(err error, code uint64, msg string) error {
+	if err == nil {
+		return nil
+	}
+	return &wrappedError{
+		errInfo: *NewBitmask(code, msg),
+		err:     err,
+	}
+}
+
+// WrapBitmaskf 使用格式化字符串包装错误为位掩码错误
+func WrapBitmaskf(err error, code uint64, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+	return &wrappedError{
+		errInfo: *Bitmaskf(code, format, args...),
 		err:     err,
 	}
 }
@@ -146,7 +210,9 @@ type wrappedError struct {
 	err     error
 }
 
-// Unwrap 返回被包装的原始错误
+// Unwrap 实现标准库错误解包接口
+// 对应标准库: errors.Unwrap(err error) error
+// 返回被包装的原始错误，用于错误链遍历
 func (e *wrappedError) Unwrap() error {
 	return e.err
 }
@@ -160,7 +226,7 @@ func (e *wrappedError) Error() string {
 }
 
 // Code 返回错误码
-func (e *wrappedError) Code() int32 {
+func (e *wrappedError) Code() uint64 {
 	return e.errInfo.Code()
 }
 
@@ -169,7 +235,10 @@ func (e *wrappedError) Msg() string {
 	return e.errInfo.Msg()
 }
 
-// Is 支持错误比较
+// Is 实现标准库错误比较接口
+// 对应标准库: errors.Is(err, target error) bool
+// 当调用 errors.Is(err, target) 时，会自动调用此方法
+// 先检查包装的错误信息，再检查原始错误链
 func (e *wrappedError) Is(target error) bool {
 	if e.errInfo.Is(target) {
 		return true
@@ -177,7 +246,10 @@ func (e *wrappedError) Is(target error) bool {
 	return errors.Is(e.err, target)
 }
 
-// As 支持错误类型断言
+// As 实现标准库错误类型断言接口
+// 对应标准库: errors.As(err error, target any) bool
+// 当调用 errors.As(err, target) 时，会自动调用此方法
+// 先检查包装的错误信息，再检查原始错误链
 func (e *wrappedError) As(target any) bool {
 	if errors.As(&e.errInfo, target) {
 		return true
