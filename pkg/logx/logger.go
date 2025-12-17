@@ -101,6 +101,7 @@ func New(cfg LoggerOptions) (*Logger, error) {
 			MaxBackups: cfg.MaxBackups,
 			MaxAge:     cfg.MaxAge,
 			Compress:   cfg.Compress,
+			LocalTime:  true, // 使用本地时区命名日志文件（而不是 UTC）
 		}
 	} else {
 		writer = os.Stdout
